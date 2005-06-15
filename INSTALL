@@ -1,0 +1,33 @@
+Installing nasty
+-----------------------------------------------
+
+1. Install mysql 4.0.23
+
+2. Create tables needed by nasty:
+	mysql < prepare.mysql	(NOT TESTED!!!)
+3. Insert user and password into 'users' table.
+
+4. Insert same user and role 'netadmin' into 'user_roles' table.
+
+------------------------
+
+5. Install Tomcat 5.0.28.
+
+6. Copy mysql-connector-java-3.0.16-ga-bin.jar to $TOMCAT_HOME/common/lib.
+
+7. Uncomment SSL-Connector in $TOMCAT_HOME/conf/server.xml to allow 
+   SSL-Connections.
+
+8. Generate key as described in $TOMCAT_HOME/conf/server.xml.
+
+------------------------
+
+9. Run install.sh and follow the commands given at the end.
+   
+    NOTE: install.sh creates a /usr/local/nastyCollector directory
+   	 and a script called nastyColl in /usr/local/bin
+
+ 
+10. Run the nastyColl script (at the moment only root can do that) to start 
+    the data collection and visit http://localhost:8080/nasty to see the 
+    web interface.

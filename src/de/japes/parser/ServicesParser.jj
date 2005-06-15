@@ -1,0 +1,98 @@
+options
+{
+	STATIC = true;
+}
+
+PARSER_BEGIN(ServicesParser)
+
+package de.japes.parser;
+
+import java.util.HashMap;
+
+public class ServicesParser {
+
+	private static String[] tcpServices = new String[1024];
+	private static String[] udpServices = new String[1024];
+	private static HashMap portHash = new HashMap();
+	private static String currName;
+	private static String currProt;
+	private static boolean initialized = false;
+
+	public static void main(String args[]) throws ParseException {
+	
+		ServicesParser servParser = new ServicesParser(System.in);
+		servParser.Start();
+	}
+
+	public static String[] getTcpServices() {
+		return tcpServices;
+	}
+	
+	public static String[] getUdpServices() {
+		return udpServices;
+	}
+
+	public static HashMap getPortHash() {
+		return portHash;
+	}
+
+	public static boolean isInitialized() {
+		return initialized;
+	}
+}
+
+PARSER_END(ServicesParser)
+
+SKIP :
+{
+	"\t"
+	| " "
+	| "\n"
+	| "<SINGLE_LINE_COMMENT>"
+}
+
+SPECIAL_TOKEN :
+{
+  <SINGLE_LINE_COMMENT: "#" (~["\n","\r"])* ("\n"|"\r"|"\r\n")> 
+}
+
+TOKEN :
+{
+	< SERVICE_PORT: (["0"-"9"])+ "/" ("tcp" | "udp" | "ddp")>
+	|< SERVICE_NAME: (["a"-"z"] | ["A"-"Z"] | ["0"-"9"] | "/" | "-" | "+" | "*" | "." | "_")+ > 
+}
+
+
+void Start() :
+{}
+{
+	ServicesFile() <EOF> {initialized=true;}
+}
+
+void ServicesFile() :
+{}
+{
+	( Entry() )*
+}
+
+void Entry() :
+{
+	Token t;
+}
+{
+	t=<SERVICE_NAME> {currName=t.image;}
+	| t=<SERVICE_PORT> {	int port = Integer.parseInt(t.image.split("/")[0]);
+				if (port < 1024) {
+					currProt=t.image.split("/")[1];
+					if (currProt.equalsIgnoreCase("tcp") && tcpServices[port-1]==null) {
+						tcpServices[port-1] = currName;
+					} 
+					else if (currProt.equalsIgnoreCase("udp") && udpServices[port-1]==null) {
+						udpServices[port-1] = currName;
+					}
+					int[] portObj = {port};
+					portHash.put(currName, portObj);
+				}
+			}	
+
+}

@@ -1,0 +1,5 @@
+#!/bin/sh
+
+cd /usr/local/nastyCollector
+
+java -cp mysql-connector-java-3.0.16-ga-bin.jar:/usr/local/nasty/Collector:. de/japes/net/nasty/collector/Collector

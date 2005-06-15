@@ -1,0 +1,43 @@
+<Context path="/nasty" docBase="${catalina.home}/webapps/nasty">
+
+    <Realm className="org.apache.catalina.realm.JDBCRealm" debug="99"
+           driverName="org.gjt.mm.mysql.Driver"
+	   connectionURL="jdbc:mysql://localhost/nasty?user=tomcat&amp;password=changeit"
+	   userTable="users" userNameCol="user_name" userCredCol="user_pass"
+	   userRoleTable="user_roles" roleNameCol="role_name"/>
+
+     <Valve className="org.apache.catalina.valves.AccessLogValve"
+	    prefix="localhost_access_log." suffix=".txt"
+	    pattern="common"/>
+
+     <Resource name="jdbc/FlowDB" auth="Container"
+	       type="javax.sql.DataSource"/>
+
+     <ResourceParams name="jdbc/FlowDB">
+	     <parameter>
+		     <name>username</name>
+		     <value>netadmin</value>
+	     </parameter>
+	     <parameter>
+		     <name>password</name>
+		     <value>nastyAdm1n</value>
+	     </parameter>
+	     <parameter>
+		     <name>driverClassName</name>
+		     <value>com.mysql.jdbc.Driver</value>
+	     </parameter>
+	     <parameter>
+		     <name>url</name>
+		     <value>jdbc:mysql://localhost/nasty</value>
+	     </parameter>
+	     <parameter>
+		     <name>maxActive</name>
+		     <value>10</value>
+	     </parameter>
+	     <parameter>
+		     <name>maxIdle</name>
+		     <value>4</value>
+	     </parameter>
+     </ResourceParams>
+
+</Context>

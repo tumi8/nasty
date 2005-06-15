@@ -1,0 +1,174 @@
+options
+{
+	STATIC = true;
+}
+
+PARSER_BEGIN(ConfigParser)
+
+package de.japes.parser.nasty;
+
+import java.util.HashMap;
+
+public class ConfigParser {
+
+	private static int udpBufferSize=0;
+	private static String dbServer="";
+	private static short dbPort=0;
+	private static String dbName="";
+	private static String dbUser="";
+	private static String dbPass="";
+	private static short daysDetailedData=0;
+	private static short weeksDailyData=0;
+	private static boolean initialized = false;
+
+	public static void main(String args[]) throws ParseException {
+	
+		ConfigParser confParser = new ConfigParser(System.in);
+		confParser.Start();
+	}
+
+	private static void setUdpBufferSize(String buffer) {
+		udpBufferSize = Integer.parseInt(buffer);
+	}
+
+	private static int getUdpBufferSize() {
+		return udpBufferSize;
+	}
+
+	private static void setDBServer(String server) {
+		dbServer = server;
+	}
+	
+	public static String getDBServer() {
+		return dbServer;
+	}
+
+	private static void setDBPort(String port) {
+		dbPort = Short.parseShort(port);
+	}
+
+	public static short getDBPort() {
+		return dbPort;
+	}
+
+	public static void setDBUser(String user) {
+		dbUser = user;
+	}
+
+	public static String getDBUser() {
+		return dbUser;
+	}
+
+	public static void setDBPass(String pass) {
+		dbPass = pass;
+	}
+
+	public static String getDBPass() {
+		return dbPass;
+	}
+
+	private static void setDBName(String name) {
+		dbName = name;
+	}
+
+	public static String getDBName() {
+		return dbName;
+	}
+
+	private static void setDaysDetailedData(String days) {
+		daysDetailedData = Short.parseShort(days);
+	}
+
+	public static short getDaysDetailedData() {
+		
+		//detailed data for at least 24h
+		if (daysDetailedData<1) 
+			return 1;
+		else
+			return daysDetailedData;
+	}
+
+	private static void setWeeksDailyData(String weeks) {
+		weeksDailyData = Short.parseShort(weeks);
+	}
+
+	public static short getWeeksDailyData() {
+
+		//daily data for at least one week
+		if (weeksDailyData<1) 
+			return 1;
+		else
+			return weeksDailyData;
+	}
+
+	public static boolean isInitialized() {
+		return initialized;
+	}
+
+}
+
+PARSER_END(ConfigParser)
+
+
+SPECIAL_TOKEN :
+{
+  <SINGLE_LINE_COMMENT: "#" (~["\n","\r"])* ("\n"|"\r"|"\r\n")> 
+}
+
+<DEFAULT> 
+SKIP :
+{
+	"\t"
+	| " "
+	| "\n"
+	| "<SINGLE_LINE_COMMENT>"
+}
+
+TOKEN :
+{
+	< UDP_BUFFER_SIZE: "udp_buffer_size" > : FOUND_OPTION
+	|< DATABASE_NAME: "db_name" > : FOUND_OPTION
+	|< DATABASE_SERVER: "db_server" > : FOUND_OPTION
+	|< DATABASE_PORT: "db_port" > : FOUND_OPTION
+	|< DATABASE_USER: "db_user" > : FOUND_OPTION
+	|< DATABASE_PASS: "db_pass" > : FOUND_OPTION
+	|< DAYS_DETAILED_DATA: "days_detailed_data" > : FOUND_OPTION
+	|< WEEKS_DAILY_DATA: "weeks_daily_data" > : FOUND_OPTION
+	|< TEXT: ~[] >
+}
+
+
+<FOUND_OPTION>
+TOKEN:
+{
+	<WHITESPACE: ([" ","\t"])+ >
+	| <VALUE: (~[" ","\t","\n"])+ > : DEFAULT 
+}  
+
+void Start() :
+{}
+{
+	ConfigFile() <EOF> {initialized=true;}
+}
+
+void ConfigFile() :
+{}
+{
+	( Line() )*
+}
+
+void Line() :
+{
+	Token t;
+}
+{
+	<UDP_BUFFER_SIZE> <WHITESPACE> t=<VALUE> {setUdpBufferSize(t.image);}
+	| <DATABASE_SERVER> <WHITESPACE> t=<VALUE> {setDBServer(t.image);}
+	| <DATABASE_PORT> <WHITESPACE> t=<VALUE> {setDBPort(t.image);}
+	| <DATABASE_NAME> <WHITESPACE> t=<VALUE> {setDBName(t.image);}
+	| <DATABASE_USER> <WHITESPACE> t=<VALUE> {setDBUser(t.image);}
+	| <DATABASE_PASS> <WHITESPACE> t=<VALUE> {setDBPass(t.image);}
+	| <DAYS_DETAILED_DATA> <WHITESPACE> t=<VALUE> {setDaysDetailedData(t.image);}
+	| <WEEKS_DAILY_DATA> <WHITESPACE> t=<VALUE> {setWeeksDailyData(t.image);}
+
+}

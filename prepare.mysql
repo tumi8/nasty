@@ -1,0 +1,30 @@
+CREATE DATABASE nasty;
+
+USE nasty;
+
+GRANT SELECT,INSERT,UPDATE,CREATE,DROP,DELETE,LOCK TABLES ON nasty.* TO 'nastyWriter' IDENTIFIED BY 'write@ccess';
+
+CREATE TABLE exporter (id SMALLINT NOT NULL AUTO_INCREMENT, sourceID INTEGER UNSIGNED, srcIP INTEGER UNSIGNED, PRIMARY KEY (id));
+
+create table users (
+  user_name         varchar(15) not null primary key,
+  user_pass         varchar(15) not null
+);
+
+create table user_roles (
+  user_name         varchar(15) not null,
+  role_name         varchar(15) not null,
+  primary key (user_name, role_name)
+);
+
+CREATE TABLE config (detailedDays SMALLINT UNSIGNED, detailedWeeks SMALLINT UNSIGNED);
+	  	
+DELETE FROM mysql.user WHERE User='';	
+
+GRANT SELECT ON nasty.users TO 'tomcat'@'%' IDENTIFIED BY 'changeit';
+
+GRANT SELECT ON nasty.user_roles TO 'tomcat'@'%' IDENTIFIED BY 'changeit';
+
+GRANT SELECT,CREATE TEMPORARY TABLES,INSERT,DROP ON nasty.* TO 'netadmin'@'%' IDENTIFIED BY 'nastyAdm1n';
+
+FLUSH PRIVILEGES;

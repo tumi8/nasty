@@ -1,0 +1,90 @@
+options
+{
+	STATIC = true;
+}
+
+PARSER_BEGIN(ProtocolsParser)
+
+package de.japes.parser;
+
+import java.util.HashMap;
+
+public class ProtocolsParser {
+
+	private static String[] protocols = new String[256];
+	private static HashMap protoHash = new HashMap();
+	private static String currName;
+	private static String currProto;
+	private static boolean initialized = false;
+
+	public static void main(String args[]) throws ParseException {
+	
+		ProtocolsParser protoParser = new ProtocolsParser(System.in);
+		protoParser.Start();
+	}
+
+	public static String[] getProtocols() {
+		return protocols;
+	}
+	
+	public static HashMap getProtoHash() {
+		return protoHash;
+	}
+
+	public static boolean isInitialized() {
+		return initialized;
+	}
+}
+
+PARSER_END(ProtocolsParser)
+
+SKIP :
+{
+	"\t"
+	| " "
+	| "\n"
+	| "<SINGLE_LINE_COMMENT>"
+}
+
+SPECIAL_TOKEN :
+{
+  <SINGLE_LINE_COMMENT: "#" (~["\n","\r"])* ("\n"|"\r"|"\r\n")> 
+}
+
+TOKEN :
+{
+	< PROTOCOL_NUMBER: (["0"-"9"])+ >
+	|< PROTOCOL_NAME: (["a"-"z"] | ["0"-"9"] | "/" | "-" | "+" | "*" | "." | "_")+ >
+	|< UPPER_CASE_NAME: (["A"-"Z"])+ (~["\n","\r"])* ("\n"|"\r"|"\r\n")> 
+}
+
+
+void Start() :
+{}
+{
+	ProtocolsFile() <EOF> {initialized=true;}
+}
+
+void ProtocolsFile() :
+{}
+{
+	( Entry() )*
+}
+
+void Entry() :
+{
+	Token t;
+}
+{
+	t=<PROTOCOL_NAME> {currName=t.image;}
+	| t=<PROTOCOL_NUMBER> {	short proto = Short.parseShort(t.image);
+				if (proto < 256) {
+					if (protocols[proto] == null)
+						protocols[proto] = currName;
+					short[] protoObj = {proto};
+					protoHash.put(currName, protoObj);
+				}
+			}
+	| <UPPER_CASE_NAME>	
+
+}
