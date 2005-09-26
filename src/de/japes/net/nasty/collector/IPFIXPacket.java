@@ -159,8 +159,8 @@ public class IPFIXPacket implements FlowsetPacket {
 						return;
 					}
 					
-					try {
-						s.execute("LOCK TABLES flow WRITE");
+					//try {
+						//s.execute("LOCK TABLES flow WRITE");
 					
 						do {
 							ListIterator e = templ.getTemplateFields().listIterator();
@@ -193,12 +193,12 @@ public class IPFIXPacket implements FlowsetPacket {
 							
 						} while (remainingBytes > 0);
 						
-						s.execute("UNLOCK TABLES");
+						//s.execute("UNLOCK TABLES");
 						
-					} catch (SQLException e) {
-						System.err.println("Couldn't lock/unlock flow table");
-						System.err.println(e.getMessage());
-					}
+					//} catch (SQLException e) {
+						//System.err.println("Couldn't lock/unlock flow table");
+						//System.err.println(e.getMessage());
+					//}
 				}
 				
 				
