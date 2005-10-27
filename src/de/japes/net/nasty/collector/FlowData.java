@@ -167,6 +167,7 @@ public class FlowData {
 		} else
 			return;
 		
+		System.err.println("Buffering record " + cachePtr + "/" + CACHE_SIZE);
 		if (cachePtr<CACHE_SIZE-1) {
 			
 			cachePtr++;
@@ -322,7 +323,9 @@ public class FlowData {
 					System.err.println(e.getMessage());
 				}
 				
-				flowCache[i].containsData = false;
+				//flowCache[i].containsData = false;
+				// reset all values
+				flowCache[i].clear();
 			}
 			
 			try {
@@ -352,6 +355,24 @@ public class FlowData {
 		public long exporterAddress;
 		public int dbID;
 		public boolean containsData;
+
+		public void clear() {
+			srcIP = 0;
+			dstIP = 0;
+			srcPort = 0;
+			dstPort = 0;
+			proto = 0;
+			srcTos = 0;
+			dstTos = 0;
+			bytes = 0;
+			packets = 0;
+			firstSwitched = 0;
+			lastSwitched = 0;
+			exporterID = 0;
+			exporterAddress = 0;
+			dbID = 0;
+			containsData = false;
+		}
 	}
 	
 	
