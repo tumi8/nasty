@@ -1,5 +1,9 @@
-/*
- * Created on 15.09.2004
+/**
+ * Title:   ChartOutputCreator
+ * Project: NASTY
+ *
+ * @author  David Halsband, Thomas Schurtz, unrza88
+ * @version %I% %G%
  */
 
 package de.japes.servlets.nasty;
@@ -17,6 +21,7 @@ import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.ArrayList;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -31,464 +36,425 @@ import org.jCharts.chartData.PieChartDataSet;
 import org.jCharts.properties.util.ChartFont;
 import org.jCharts.nonAxisChart.PieChart2D;
 import org.jCharts.properties.*;
-import org.jCharts.properties.LegendProperties;
-import org.jCharts.properties.PieChart2DProperties;
-
+import java.awt.Stroke;
+import java.awt.Shape;
 /**
- * @author unrza88
+ * Queries given databases according to the parameters set by nasty's <code>index.jsp</code>
+ * and produces specific graphical charts and their legends from the results.
+ * <p>
+ * The charts are stored as an object named <code>chart</code> in the servlet context and are
+ * shown by invoking the servlet <code>ChartsDeliverer</code>.
+ * 
+ * @see ChartsDeliverer
  */
 public class ChartOutputCreator extends OutputCreator {
 	
-	private static final String contentType = "text/html";
-	private boolean ipPie = false;
-	private boolean appPieSrc = false;
-	private boolean appPieDst = false;
-	private boolean traffic = false;
-	private boolean trafficSrc = false;
-	private boolean trafficDst = false;
-	private boolean ignoreHighPorts = false;
-
+    /** MIME-content of results is <code>text/html</code> */
+    private static final String contentType = "text/html";
+    /** True if IP protocol distribution chart was selected. */
+    private boolean ipPie = false;
+    /** True if application protocol distribution (source ports) chart was selected. */
+    private boolean appPieSrc = false;
+    /** True if application protocol distribution (destination ports) chart was selected. */
+    private boolean appPieDst = false;
+    /** True if traffic over time chart was selected. */
+    private boolean traffic = false;
+    /** True if traffic over time (source ports) chart was selected. */
+    private boolean trafficSrc = false;
+    /** True if traffic over time (destination ports) chart was selected. */
+    private boolean trafficDst = false;
+    /** True if traffic over time (exporters) chart was selected. */
+    private boolean trafficExp = false;
+    /** True if packet analysis chart was selected. */
+    private boolean pktAna = false;
+    /** True if size analysis chart was selected. */
+    private boolean sizeAna = false;
+    /** True if duration analysis chart was selected. */
+    private boolean durAna = false;
+    /** Width of the chart. */
     protected int width = 640;
+    /** Height of the chart. */
     protected int height = 480;
-    
-    
-	public ChartOutputCreator() {
-	
-	}
+    /** Name of temporary table for database query. */
+    private String tmpname="";
 
-	public String createOutput(HttpServletRequest request, HttpServletResponse response, Statement s) {
-		
-		double 		sum = 0;
-		double 		tmp = 0;
-		double[] 	dataSet = null;
-		
-		String 		legend = "";
-		String 		chart = "";
-		String[] 	labels = null;
-	
-		ResultSet 	result = null;
-		
-		NumberFormat nf = NumberFormat.getNumberInstance();
-		nf.setMaximumFractionDigits(2);
-		
-		appPieSrc 	= false;
-		appPieDst 	= false;
-		ipPie 		= false;
-		traffic 	= false;
-		trafficSrc	= false;
-		trafficDst	= false;
-		ignoreHighPorts = false;
-		
-		String[] checkValues = request.getParameterValues("checks");
-		
-		int i = 0;
-		
-		while (checkValues != null && i < checkValues.length) {
+    /**
+     * Class constructor, just calls the constructor of super class.
+     *
+     * @param request   Holds the parameters selected by the user in <code>index.jsp</code>.
+     * @param response  Could be used to set response parameters or write output messages to.
+     * @param s         JDBC-<code>Statement</code>-object for local database (for storing
+     *                  temporary results).
+     * @param dbList    List of JDBC-<code>Statement</code>-objects for the databases that should
+     *                  be queried. (May include one for local database!)
+     * @see   Statement
+     * @see   OutputCreator
+     */
+    public ChartOutputCreator(HttpServletRequest request, HttpServletResponse response, Statement s, ArrayList dbList) {
+        super(request, response, s, dbList);
+    }
 
-			if (checkValues[i].equalsIgnoreCase("ignoreHighPorts"))
-				ignoreHighPorts = true;
-			
-			i++;
-		}
-		
-		output = "";
-		
-		output += "Start: " + new GregorianCalendar().getTime() + "\n";
-		
-		if ((chart=request.getParameter("chartSelect")).equalsIgnoreCase("Application Protocol Distribution (Source Ports)"))
-			appPieSrc = true;
-		else if (chart.equalsIgnoreCase("Application Protocol Distribution (Destination Ports)"))
-			appPieDst = true;
-		else if (chart.equalsIgnoreCase("IP Protocol Distribution"))
-			ipPie = true;
-		else if (chart.equalsIgnoreCase("Traffic Over Time"))
-			traffic = true;
-		else if (chart.equalsIgnoreCase("Traffic Over Time (Source Ports)"))
-			trafficSrc = true;
-		else if (chart.equalsIgnoreCase("Traffic Over Time (Destination Ports)"))
-			trafficDst = true;
-		
-		if (appPieSrc || appPieDst) {
-			
-			try {
-				
-				s.execute("CREATE TEMPORARY TABLE appTmp (port SMALLINT(5) UNSIGNED, bytes BIGINT(20) UNSIGNED)");
-				
-			} catch (SQLException e) {
-				
-				output += "<p>Error creating temporary table.</p>";
-				output += e.getMessage();
-				return output;
-			}
-		} else if (ipPie) {
-			
-			try {
-				
-				s.execute("CREATE TEMPORARY TABLE ipTmp (proto TINYINT(3) UNSIGNED, bytes BIGINT(20) UNSIGNED)");
-				
-			} catch (SQLException e) {
-				
-				output += "<p>Error creating temporary table.</p>";
-				output += e.getMessage();
-				return output;
-			}
-		} else if (traffic) {
-			
-			try {
-				
-				s.execute("CREATE TEMPORARY TABLE trafficTmp (firstSwitched INTEGER(10) UNSIGNED, bytes BIGINT(20) UNSIGNED)");
-				
-			} catch (SQLException e) {
-				
-				output += "<p>Error creating temporary table.</p>";
-				output += e.getMessage();
-				return output;
-			}
-		} else if (trafficSrc || trafficDst) {
-			
-			try {
-				
-				s.execute("CREATE TEMPORARY TABLE trafficTmp (port SMALLINT(5) UNSIGNED, firstSwitched INTEGER(10) UNSIGNED, bytes BIGINT(20) UNSIGNED)");
-				
-			} catch (SQLException e) {
-				
-				output += "<p>Error creating temporary table.</p>";
-				output += e.getMessage();
-				return output;
-			}
-		}
-		
-		String query = "";
-		
-		if (!traffic && !trafficSrc && !trafficDst) {
-			
-			query = createSQLQuery(request, s);
-		
-			if (query == "") {
-				output += "No valid query could be produced";
-				return output;
-			}
-		
-			try {
-				result = s.executeQuery(query);
-			
-			} catch (SQLException e) {
-			
-				output += "<p>Error using DB connection.</p>";
-				output += e.getMessage();
-				return output;
-			} catch (OutOfMemoryError e) {
-				output += "Query is too general and used up all the memory.";
-				return output;
-			}
-		} else {
-			
-			fillTemporaryTable(request, s);
-		}
-		
-		try {
-			
-			if (request.getParameter("chartSelect").equalsIgnoreCase("IP Protocol Distribution") ||
-				request.getParameter("chartSelect").equalsIgnoreCase("Application Protocol Distribution (Source Ports)") ||
-				request.getParameter("chartSelect").equalsIgnoreCase("Application Protocol Distribution (Destination Ports)"))
-				
-				legend = generatePie(request, result);
-			
-			else if (request.getParameter("chartSelect").equalsIgnoreCase("Traffic Over Time") ||
-					 request.getParameter("chartSelect").equalsIgnoreCase("Traffic Over Time (Source Ports)") ||
-					 request.getParameter("chartSelect").equalsIgnoreCase("Traffic Over Time (Destination Ports)"))
-				
-				legend = generateAreaChart(request, s);
-			
-		} catch (ChartDataException e) {
-			return e.getMessage();
-			
-		} catch (SQLException e) {
-			return e.getMessage();
-		
-		} finally {
-			try {
-				if(appPieSrc || appPieDst)
-					s.execute("DROP TABLE appTmp");
-				else if(ipPie)
-					s.execute("DROP TABLE ipTmp");
-				else if(traffic || trafficSrc || trafficDst)
-					s.execute("DROP TABLE trafficTmp");
-			} catch (SQLException e) {
-				return e.getMessage();
-			}
-		}
-		
-		//if (legend == "null")
-			//return "<p>No results.</p>";
-		
-		output += "End: " + new GregorianCalendar().getTime() + "\n";
-		
-		return 	output + "\n" + "<table><tr><td><IMG src=\"/nasty/ChartsDeliverer\"></td><td>" + legend + "</td></tr></table>" +
-				"<br><a href=\"/nasty/PdfDeliverer\">Get chart as PDF</a>";
-	}
-	
-	private String generatePie(HttpServletRequest request, ResultSet result) 
-		throws SQLException, ChartDataException {
-	
-		int numResults = 0;
-		
-		double 		sum = 0;
-		double 		tmp = 0;
-		double[] 	dataSet = null;
-		
-		String 		legend;
-		String 		outputUnit = request.getParameter("unit");
-		String 		sumString = "";
-		String[] 	labels = null;
-		Paint[] 	paints = null;
-		
-		
-		NumberFormat nf = NumberFormat.getNumberInstance();
-		nf.setMaximumFractionDigits(2);
-		
-		Paint[] possiblePaints = new Paint[]{Color.blue, Color.red, Color.green,
-				Color.yellow, Color.cyan, Color.black, Color.magenta,
-				Color.pink, Color.orange, Color.white};
-		
-		
-		PieChart2DProperties properties = new PieChart2DProperties();
-		properties.setBorderStroke( new BasicStroke( 0f ) );
-		
-		LegendProperties legendProperties = new LegendProperties();
-		legendProperties.setNumColumns( 2 );
-		legendProperties.setPlacement( LegendProperties.BOTTOM );
-		
-		ChartProperties chartProperties = new ChartProperties();
+    /**
+     * Checks which chart the user has selected and calls the corresponding method to produce it.
+     * (The chart will be stored as the parameter <code>chart</code> in the servlet context as an
+     * object by these methods. The legend for the chart however will be returned as an HTML-string.) 
+     * 
+     * @return  String that holds the invocation command to call the <code>ChartsDeliverer</code>
+     *          servlet which shows the chart that was produced and stored in the servlet context.
+     *          The string also holds the HTML-legend for the chart and/or eventual messages such
+     *          as error messages.
+     */
+    public String createOutput() {
 
-		try {
-			while (result.next()) {
-				if (result.getInt(1) < 1023)
-					numResults++;
-			}
-			
-			result.beforeFirst();
-			
-			if (numResults == 0) {
-				
-				request.getSession().getServletContext().removeAttribute("chart");
-				return "No matching data was found.";
-			}
-			
-			dataSet = new double[numResults>10?10:numResults];
-			labels = new String[numResults>10?10:numResults];
-			paints = new Paint[numResults>10?10:numResults];
-			
-			Arrays.fill(dataSet, 0);
-			
-			result.beforeFirst();
-			
-			int i = 0;
-			int currPort = 0;
-			
-			while (result.next()) {
-				
-				if (ignoreHighPorts) {
-					if (i<dataSet.length-1 || numResults == 10) {
-						if (appPieSrc || appPieDst)
-							labels[i] = createPortOutput(result.getInt(1), true);
-						else if (ipPie)
-							labels[i] = createProtoOutput(result.getShort(1), true);
-						else
-							labels[i] = result.getString(1);
-						dataSet[i] = result.getDouble(2);
-						sum += dataSet[i];
-					} else {
-						tmp = result.getDouble(2);
-						dataSet[dataSet.length-1] += tmp;
-						sum += tmp;
-					}
-					
-					i++;
-				} else {
-				
-					if (appPieSrc || appPieDst) {
-						
-						currPort = result.getInt(1);
-						
-						if ((i<dataSet.length-1 || numResults == 10) && (currPort < 1024) && (currPort != 0)) {
-							
-							labels[i] = createPortOutput(result.getInt(1), true);
-							dataSet[i] = result.getDouble(2);
-							sum += dataSet[i];
-							i++;
-							
-						} else {
-							tmp = result.getDouble(2);
-							dataSet[dataSet.length-1] += tmp;
-							sum += tmp;
-						}
-					} else if (ipPie) {
-						if (i<dataSet.length-1 || numResults == 10) {
-							
-							labels[i] = createProtoOutput(result.getShort(1), true);
-							dataSet[i] = result.getDouble(2);
-							sum += dataSet[i];
-							i++;
-							
-						} else {
-							tmp = result.getDouble(2);
-							dataSet[dataSet.length-1] += tmp;
-							sum += tmp;
-						}
-					} else {
-						if (i<dataSet.length-1 || numResults == 10) {
-							
-							labels[i] = result.getString(1);
-							dataSet[i] = result.getDouble(2);
-							sum += dataSet[i];
-							i++;
-							
-						} else {
-							tmp = result.getDouble(2);
-							dataSet[dataSet.length-1] += tmp;
-							sum += tmp;
-						}
-					}
-				}
-			}
-			
-			if (numResults!=10)
-				labels[dataSet.length-1] = "Others";
-			
-		} catch (SQLException e) {
-			throw new SQLException();
-		}
+        String chart = "";  // name of selected chart
+        String legend = ""; // chart legend
+
+        // find out which chart was selected?
+        chart=request.getParameter("chartSelect");
+        if (chart.equalsIgnoreCase("Application Protocol Distribution (Source Ports)")){
+            appPieSrc = true;
+        }else if (chart.equalsIgnoreCase("Application Protocol Distribution (Destination Ports)")){
+            appPieDst = true;
+        }else if (chart.equalsIgnoreCase("IP Protocol Distribution")){
+            ipPie = true;
+        }else if (chart.equalsIgnoreCase("Traffic Over Time")){
+            traffic = true;
+        }else if (chart.equalsIgnoreCase("Traffic Over Time (Source Ports)")){
+            trafficSrc = true;
+        }else if (chart.equalsIgnoreCase("Traffic Over Time (Destination Ports)")){
+            trafficDst = true;
+        }else if (chart.equalsIgnoreCase("Traffic Over Time (Exporters)")){
+            trafficExp = true;
+        }else if (chart.equalsIgnoreCase("Packet Analysis")){
+            pktAna = true;
+        }else if (chart.equalsIgnoreCase("Size Analysis")){
+            sizeAna = true;
+        }else if (chart.equalsIgnoreCase("Duration Analysis")){
+            durAna = true;
+        }
+        
+        // get a unique name for the temporary table for the database query
+        tmpname = dq.getUniqueName("chartTmp");
+        // call the appropriate method to produce the selected chart and its legend
+        try {
+            if (ipPie || appPieSrc || appPieDst) {
+                legend = generateProtoAndPortPie();
+            }
+            else if (traffic || trafficSrc || trafficDst ) {
+                legend = generateTrafficAreaChart();
+            }
+            else if (trafficExp ) {
+                legend = generateTrafficExpAreaChart();
+            }
+            else if (pktAna || sizeAna || durAna){
+                legend = generateAreaAnalysis();
+            }
+        } catch (ChartDataException e) {
+            return e.getMessage();
+        } catch (SQLException e) {
+            return e.getMessage();
+
+        // drop the temporary table that was created in each method
+        } finally {
+            dq.dropTable(tmpname);
+        }
 		
-		for (int i=0; i<(numResults>10 ? dataSet.length:numResults); i++) {
-			
-			paints[i] = possiblePaints[i];
-			labels[i] += " (" + (nf.format((double)(dataSet[i]/sum*100))) + "%)";
-		}
-		
-		try {
-			PieChartDataSet pds = new PieChartDataSet(request.getParameter("chartSelect"), dataSet, labels, paints, properties);
-			PieChart2D pie = new PieChart2D(pds, legendProperties, chartProperties, this.width, this.height);
-			
-			request.getSession().getServletContext().setAttribute("chart", pie);
-			
-		} catch (ChartDataException e) {
-			throw new ChartDataException("Error generating pie.");
-		}
-		
-		legend = "<table border='3' frame='box'><tr><th>Color</th><th>Meaning</th><th>Amount</th></tr>";
-		
-		for (int i=0; i < (numResults>10 ? dataSet.length:numResults); i++) {
-			
-			String red = Integer.toHexString(((Color)paints[i]).getRed()).toUpperCase();
-			String green = Integer.toHexString(((Color)paints[i]).getGreen()).toUpperCase();
-			String blue = Integer.toHexString(((Color)paints[i]).getBlue()).toUpperCase();
-			
-			if (red.length() < 2)
-				red = "0" + red;
-			if (green.length() < 2)
-				green = "0" + green;
-			if (blue.length() < 2)
-				blue = "0" + blue;
-			
-			legend += 	"<tr><td bgcolor=" + red + green + blue + "></td>" +
-						"<td align=center>" + labels[i].split(" ")[0] + "</td><td align=\"right\">";
-			
-			if (outputUnit.equalsIgnoreCase("bytes")) {
-				legend += dataSet[i];
-				sumString = nf.format(sum);
-			} else if(outputUnit.equalsIgnoreCase("kilo")) {
-				legend += nf.format(dataSet[i]/1024) + " kB";
-				sumString = nf.format(sum/1024) + "kB";
-			} else if (outputUnit.equalsIgnoreCase("mega")) {
-				legend += nf.format(dataSet[i]/1024/1024) + " MB";
-				sumString = nf.format(sum/1024/1024) + " MB";
-			} else
-				legend += "Error";
-			
-			legend += " (" + nf.format((double)(dataSet[i]/sum*100)) + "%)</td></tr>";
-		}
-		
-		legend += "<tr><td></td><td align=center>Sum</td><td align=\"right\">" + sumString + "</td></tr>"; 
-		legend += "</table>";
-		
-		return legend;
-	}
+        // return results of query
+        // (created chart has been stored as an object in the session context and is painted
+        // by invoking the ChartsDeliverer-servlet)
+        return 	output + "\n" + "<table><tr><td><IMG src=\"/nasty/ChartsDeliverer\"></td><td>" + legend + "</td></tr></table>" +
+        "<br><a href=\"/nasty/PdfDeliverer\">Get chart as PDF</a><p>" + dq.getOutput();
+    }
 	
-	private String generateAreaChart(HttpServletRequest request, Statement s) 
-		throws ChartDataException {
+    /**
+     * Generates pie-charts for IP protocol and source and destination port distribution.
+     * The chart will be stored in the servlet context as parameter <code>chart</code>.
+     *
+     * @return  String that holds the legend of the chart in HTML-format.
+     */
+    private String generateProtoAndPortPie() 
+    throws SQLException, ChartDataException {
+
+        int numResults = 0;
+
+        double sum = 0;
+        double tmp = 0;
+        double[] dataSet = null;
+
+        ResultSet result;
+        String statement;
+        String legend;
+        String sumString = "";
+        String[] labels = null;
+        Paint[] paints = null;
+
+        NumberFormat nf = NumberFormat.getNumberInstance();
+        nf.setMaximumFractionDigits(2);
+
+        Paint[] possiblePaints = new Paint[]{Color.blue, Color.red, Color.green,
+                                    Color.yellow, Color.cyan, Color.black, Color.magenta,
+                                    Color.pink, Color.orange, Color.white};
+        PieChart2DProperties properties = new PieChart2DProperties();
+        properties.setBorderStroke( new BasicStroke( 0f ) );
+
+        LegendProperties legendProperties = new LegendProperties();
+        legendProperties.setNumColumns( 2 );
+        legendProperties.setPlacement( LegendProperties.BOTTOM );
+
+        ChartProperties chartProperties = new ChartProperties();
+
+        // prepare to create temporary table for the database query
+        boolean ok;
+        String createTmp = "";
+        if (ipPie){
+           createTmp = "CREATE TEMPORARY TABLE "+tmpname+" (proto TINYINT(3) UNSIGNED, bytes BIGINT(20) UNSIGNED)";
+        } else {
+           createTmp = "CREATE TEMPORARY TABLE "+tmpname+" (port SMALLINT(5) UNSIGNED, bytes BIGINT(20) UNSIGNED)";
+        }
+
+        // fill temporary table by querying relevant source tables
+        statement = "";
+        if (appPieSrc) {
+             statement = "SELECT SQL_BIG_RESULT srcPort, SUM(bytes) ";
+        } else if(appPieDst) {
+             statement = "SELECT SQL_BIG_RESULT dstPort, SUM(bytes) ";
+        } else if (ipPie) {
+             statement = "SELECT SQL_BIG_RESULT proto, SUM(bytes) ";
+        }
+        statement += "FROM #srctable# WHERE #params#";
+        if (appPieSrc) {
+            if (ignoreHighPorts) {
+		statement += " AND srcPort BETWEEN 1 AND 1023 GROUP BY srcPort";
+            } else
+		statement += " GROUP BY srcPort";
+        } else if (appPieDst) {
+            if (ignoreHighPorts) {
+                statement += " AND dstPort BETWEEN 1 AND 1023 GROUP BY dstPort";
+            } else 
+                statement += " GROUP BY dstPort";
+        } else if (ipPie) {
+            statement += " GROUP BY proto";
+	}
+        ok=dq.fillTable(tmpname, createTmp, statement, remDoubles, remExporterID, remTimeDiv);
+        if (!ok) { return ""; }
+        
+        // query the temporary table
+        if (appPieSrc || appPieDst) {
+            statement = "SELECT port, SUM(bytes) AS sum FROM "+tmpname+" GROUP BY port ORDER BY sum DESC";
+        } else if(ipPie) {
+            statement = "SELECT proto, SUM(bytes) AS sum FROM "+tmpname+" GROUP BY proto ORDER BY sum DESC";
+        }
+        result = dq.queryTempDB(statement);
+        if (result==null) { return ""; }
+                
+        // create chart from the results of the query
+        try {
+            while (result.next()) {
+                if (result.getInt(1) < 1023)
+                    numResults++;
+            }
+            result.beforeFirst();
+                
+            if (numResults == 0) {
+                request.getSession().getServletContext().removeAttribute("chart");
+                return "No matching data was found.";
+            }
+			
+            dataSet = new double[numResults>10?10:numResults];
+            labels = new String[numResults>10?10:numResults];
+            paints = new Paint[numResults>10?10:numResults];
+			
+            Arrays.fill(dataSet, 0);
+			
+            result.beforeFirst();
+			
+            int i = 0;
+            int currPort = 0;
+			
+            while (result.next()) {
+				
+                if (ignoreHighPorts) {
+                    if (i<dataSet.length-1 || numResults == 10) {
+                        if (appPieSrc || appPieDst)
+                            labels[i] = dq.createPortOutput(result.getInt(1), true);
+                        else if (ipPie)
+                            labels[i] = dq.createProtoOutput(result.getShort(1), true);
+                        else
+                            labels[i] = result.getString(1);
+                        dataSet[i] = result.getDouble(2);
+                        sum += dataSet[i];
+                    } else {
+                        tmp = result.getDouble(2);
+                        dataSet[dataSet.length-1] += tmp;
+                        sum += tmp;
+                    }
+                    i++;
+                } else {
+                    if (appPieSrc || appPieDst) {
+                        currPort = result.getInt(1);
+                        if ((i<dataSet.length-1 || numResults == 10) && (currPort < 1024) && (currPort != 0)) {
+                            labels[i] = dq.createPortOutput(result.getInt(1), true);
+                            dataSet[i] = result.getDouble(2);
+                            sum += dataSet[i];
+                            i++;
+                        } else {
+                            tmp = result.getDouble(2);
+                            dataSet[dataSet.length-1] += tmp;
+                            sum += tmp;
+                        }
+                    } else if (ipPie) {
+                        if (i<dataSet.length-1 || numResults == 10) {
+                            labels[i] = dq.createProtoOutput(result.getShort(1), true);
+                            dataSet[i] = result.getDouble(2);
+                            sum += dataSet[i];
+                            i++;
+                        } else {
+                            tmp = result.getDouble(2);
+                            dataSet[dataSet.length-1] += tmp;
+                            sum += tmp;
+                        }
+                    } else {
+                        if (i<dataSet.length-1 || numResults == 10) {
+                            labels[i] = result.getString(1);
+                            dataSet[i] = result.getDouble(2);
+                            sum += dataSet[i];
+                            i++;
+                        } else {
+                            tmp = result.getDouble(2);
+                            dataSet[dataSet.length-1] += tmp;
+                            sum += tmp;
+                        }
+                    }
+                }
+            }
+			
+            if (numResults!=10)
+                labels[dataSet.length-1] = "Others";
+                
+        } catch (SQLException e) {
+            throw new SQLException();
+        }
+            
+        for (int i=0; i<(numResults>10 ? dataSet.length:numResults); i++) {
+            paints[i] = possiblePaints[i];
+            labels[i] += " (" + (nf.format((double)(dataSet[i]/sum*100))) + "%)";
+        }
+
+        try {
+            PieChartDataSet pds = new PieChartDataSet(request.getParameter("chartSelect"), dataSet, labels, paints, properties);
+            PieChart2D pie = new PieChart2D(pds, legendProperties, chartProperties, this.width, this.height);
+			
+            // store the generated chart in the servlet context
+            request.getSession().getServletContext().setAttribute("chart", pie);
+			
+        } catch (ChartDataException e) {
+            throw new ChartDataException("Error generating pie.");
+        }
+
+        // create legend for the chart from the results of the query
+        legend = "<table border='3' frame='box'><tr><th>Color</th><th>Meaning</th><th>Amount</th></tr>";
 		
-		boolean restrictTime 	= false;
-		boolean minScale		= false;
+        for (int i=0; i < (numResults>10 ? dataSet.length:numResults); i++) {
+            String red = Integer.toHexString(((Color)paints[i]).getRed()).toUpperCase();
+            String green = Integer.toHexString(((Color)paints[i]).getGreen()).toUpperCase();
+            String blue = Integer.toHexString(((Color)paints[i]).getBlue()).toUpperCase();
+			
+            if (red.length() < 2)
+                red = "0" + red;
+            if (green.length() < 2)
+                green = "0" + green;
+            if (blue.length() < 2)
+                blue = "0" + blue;
+
+            legend += "<tr><td bgcolor=" + red + green + blue + "></td>" +
+                      "<td align=center>" + labels[i].split(" ")[0] + "</td><td align=\"right\">";
+			
+            if (outputUnit.equalsIgnoreCase("bytes")) {
+                legend += dataSet[i];
+                sumString = nf.format(sum);
+            } else if(outputUnit.equalsIgnoreCase("kilo")) {
+                legend += nf.format(dataSet[i]/1024) + " kB";
+                sumString = nf.format(sum/1024) + "kB";
+            } else if (outputUnit.equalsIgnoreCase("mega")) {
+                legend += nf.format(dataSet[i]/1024/1024) + " MB";
+                sumString = nf.format(sum/1024/1024) + " MB";
+            } else
+                legend += "Error";
+            legend += " (" + nf.format((double)(dataSet[i]/sum*100)) + "%)</td></tr>";
+        }
+		
+        legend += "<tr><td></td><td align=center>Sum</td><td align=\"right\">" + sumString + "</td></tr>"; 
+        legend += "</table>";
+		
+        // return the legend of the chart
+        return legend;
+    }
+	
+    /**
+     * Generates charts to show traffic over time (as a whole and if selected by the user
+     * divided by source or destination port). No legend for the chart is produced.
+     * The chart will be stored in the servlet context as parameter <code>chart</code>.
+     *
+     * @return  String that holds eventual messages such as error messages.
+     */
+    private String generateTrafficAreaChart() 
+    throws ChartDataException {
+		
+		boolean minScale	= false;
 		boolean halfHourScale 	= false;
-		boolean dayScale		= false;
+		boolean dayScale	= false;
 		
-		short startYear 	= 0;
-    	short startMonth 	= 0;
-    	short startDay 		= 0;
-    	short startHour		= 0;
-    	short startMin		= 0;
-    	
-    	short endYear		= 0;
-    	short endMonth		= 0;
-    	short endDay		= 0;
-    	short endHour		= 0;
-    	short endMin        = 0;
-    	
-    	short numDataPoints = 0;
+                int numDataPoints = 0;
     	
 		int bytesDivisor = 1;
 		int port = 0;
 		
-		long start = 0, end = 0;
 		long unit = 0;
 		
 		double[][] 	data;
 		
 		String title;
-		String output="";
 		String[] legendLabels;
 		
 		Paint[] paints = null;
 		
-		ResultSet result = null;
+                ResultSet result = null;
 		
 		NumberFormat nf = NumberFormat.getNumberInstance();
 		nf.setMinimumIntegerDigits(2);
 		
-		//****************set some chart attributes*****************
+
+                //****************set some chart attributes*****************
 		
 		AreaChartProperties areaChartProperties = new AreaChartProperties();
-	    LegendProperties legendProperties = new LegendProperties();
+                LegendProperties legendProperties = new LegendProperties();
 	    
 	    
-	    AxisProperties axisProperties = new AxisProperties( false );
-        axisProperties.setXAxisLabelsAreVertical(true);
+                AxisProperties axisProperties = new AxisProperties( false );
+                axisProperties.setXAxisLabelsAreVertical(true);
        
-        ChartFont axisScaleFont = new ChartFont( new Font( "Georgia Negreta cursiva", Font.PLAIN, 13 ), Color.black );
+                ChartFont axisScaleFont = new ChartFont( new Font( "Georgia Negreta cursiva", Font.PLAIN, 13 ), Color.black );
         
-        LabelAxisProperties xAxisProperties= (LabelAxisProperties) axisProperties.getXAxisProperties();
-        xAxisProperties.setScaleChartFont( axisScaleFont );
+                LabelAxisProperties xAxisProperties= (LabelAxisProperties) axisProperties.getXAxisProperties();
+                xAxisProperties.setScaleChartFont( axisScaleFont );
         
-        LabelAxisProperties yAxisProperties= (LabelAxisProperties) axisProperties.getYAxisProperties();
-        yAxisProperties.setScaleChartFont( axisScaleFont );
+                LabelAxisProperties yAxisProperties= (LabelAxisProperties) axisProperties.getYAxisProperties();
+                yAxisProperties.setScaleChartFont( axisScaleFont );
 
-        ChartFont axisTitleFont = new ChartFont( new Font( "Arial Narrow", Font.PLAIN, 14 ), Color.black );
-        xAxisProperties.setTitleChartFont( axisTitleFont );
-        yAxisProperties.setTitleChartFont( axisTitleFont );
+                ChartFont axisTitleFont = new ChartFont( new Font( "Arial Narrow", Font.PLAIN, 14 ), Color.black );
+                xAxisProperties.setTitleChartFont( axisTitleFont );
+                yAxisProperties.setTitleChartFont( axisTitleFont );
 
-        DataAxisProperties dataAxisProperties = (DataAxisProperties) yAxisProperties;
-        dataAxisProperties.setNumItems(10);
+                DataAxisProperties dataAxisProperties = (DataAxisProperties) yAxisProperties;
+                dataAxisProperties.setNumItems(10);
 
-        ChartFont titleFont = new ChartFont( new Font( "Georgia Negreta cursiva", Font.PLAIN, 14 ), Color.black );
-        ChartProperties chartProperties = new ChartProperties();;
-        chartProperties.setTitleFont( titleFont );
+                ChartFont titleFont = new ChartFont( new Font( "Georgia Negreta cursiva", Font.PLAIN, 14 ), Color.black );
+                ChartProperties chartProperties = new ChartProperties();;
+                chartProperties.setTitleFont( titleFont );
         
 		String xAxisTitle = "Time";
 		String yAxisTitle = "";
         
-		String outputUnit = request.getParameter("unit");
-		
 		if (outputUnit.equalsIgnoreCase("bytes")) {
 			yAxisTitle = "Bytes";
 		} else if(outputUnit.equalsIgnoreCase("kilo")) {
@@ -501,95 +467,64 @@ public class ChartOutputCreator extends OutputCreator {
 		
 		//************************************************************
 		
-		//check if time was restricted
-		String[] checkValues = request.getParameterValues("checks");
-		for (int i=0; i<checkValues.length; i++) {
-			if (checkValues[i].equalsIgnoreCase("restrictTime")) {
-				restrictTime = true;
-				break;
-			}
-		}
+                title = "Traffic from " + dq.createTimeOutput(startTime) + " to " + dq.createTimeOutput(endTime);
+                
+                
+		if (startTime > endTime) {
+                    return "End time is before start time.";
+                }
 		
-		if (!restrictTime) {
-			//generate a 24h chart
-			
-			Calendar cal = GregorianCalendar.getInstance();
-    		cal.set(Calendar.MINUTE, 0);
-    		cal.set(Calendar.SECOND, 0);
-    		cal.set(Calendar.MILLISECOND, 0);		
-    		end = cal.getTimeInMillis();
-
-        	cal.add(Calendar.HOUR, -23);
-        	start = cal.getTimeInMillis();
-        	
-        	title = "Traffic over the last 24 hours";
-        	
-		} else {
-			
-			startYear 		= Short.parseShort(request.getParameter("startYear"));
-        	startMonth 		= (short)(Short.parseShort(request.getParameter("startMonth"))-1);
-        	startDay 		= Short.parseShort(request.getParameter("startDay"));
-        	startHour		= Short.parseShort(request.getParameter("startHour"));
-        	startMin		= Short.parseShort(request.getParameter("startMin"));
-        	
-        	endYear		= Short.parseShort(request.getParameter("endYear"));
-        	endMonth		= (short)(Short.parseShort(request.getParameter("endMonth"))-1);
-        	endDay		= Short.parseShort(request.getParameter("endDay"));
-        	endHour		= Short.parseShort(request.getParameter("endHour"));
-        	endMin		= Short.parseShort(request.getParameter("endMin"));
-        	
-        	Calendar startTime 	= new GregorianCalendar();
-        	startTime.set(startYear, startMonth, startDay, startHour, startMin);
-        	startTime.set(Calendar.SECOND, 0);
-        	startTime.set(Calendar.MILLISECOND, 0);
-        	start = startTime.getTimeInMillis();
-        	
-        	Calendar endTime 	= new GregorianCalendar();
-        	endTime.set(endYear, endMonth, endDay, endHour, endMin);
-        	endTime.set(Calendar.SECOND, 0);
-        	endTime.set(Calendar.MILLISECOND, 0);
-        	end = endTime.getTimeInMillis();
-        	
-        	title = "Traffic from " + startTime.getTime() + " to " + endTime.getTime();
-		}
-		
-		if (start > end) {
-    		return "End time is before start time.";
-    	}
-		
-		long duration = end - start;
+		long duration = endTime - startTime;
 		
 		if (duration <= 12*60*60*1000l) {
-    		minScale = true;
-    		numDataPoints = (short)(duration/(60*1000l));
-    		unit = 60*1000;  //draw data every minute
-    	} else if (duration <= 2*24*60*60*1000l) {
-    		halfHourScale = true;
-    		numDataPoints = (short)(duration/(30*60*1000l));
-    		unit = 30*60*1000;
-    	} else {
-    		dayScale = true;
-    		numDataPoints = (short)(duration/(24*60*60*1000l));
-    		unit = 24*60*60*1000l;
-    		xAxisTitle = "Date";
-    	}
+                    minScale = true;
+                    numDataPoints = (int)(duration/(60*1000l));
+                    unit = 60*1000;  //draw data every minute
+                } else if (duration <= 2*24*60*60*1000l) {
+                    halfHourScale = true;
+                    numDataPoints = (int)(duration/(30*60*1000l));
+                    unit = 30*60*1000;
+                } else {
+                    dayScale = true;
+                    numDataPoints = (int)(duration/(24*60*60*1000l)) + 1;
+                    unit = 24*60*60*1000l;
+                    xAxisTitle = "Date";
+                }
 		
 		String[] xAxisLabels = new String[numDataPoints];
     	
 		if (traffic) {
-			data = new double[1][numDataPoints];
-        	legendLabels = new String[]{"Overall Traffic"};
+                    data = new double[1][numDataPoints];
+                    legendLabels = new String[]{"Overall Traffic"};
         	
 		} else if(trafficSrc || trafficDst) {
-			data = new double[6][numDataPoints];
-			legendLabels = new String[6];
+                    data = new double[6][numDataPoints];
+                    legendLabels = new String[6];
 		} else {	//at the moment just to have the variables initialized in any case
-			data = new double[1][numDataPoints];
-        	legendLabels = new String[]{"Overall Traffic"};
+                    data = new double[1][numDataPoints];
+                    legendLabels = new String[]{"Overall Traffic"};
 		}
 			
+                // create and fill temporary table
+		boolean ok=true;
+                if (traffic) {
+                    ok=dq.fillTable(tmpname,"CREATE TEMPORARY TABLE "+tmpname+" (firstSwitched INTEGER(10) UNSIGNED, bytes BIGINT(20) UNSIGNED)",
+                           "SELECT SQL_BIG_RESULT firstSwitched, SUM(bytes) FROM #srctable# WHERE " +
+                           "#params# GROUP BY firstSwitched DIV "+(unit/1000), remDoubles, remExporterID, remTimeDiv);
+                } else if (trafficSrc) {
+                    ok=dq.fillTable(tmpname,"CREATE TEMPORARY TABLE "+tmpname+" (port SMALLINT(5) UNSIGNED, firstSwitched INTEGER(10) UNSIGNED, bytes BIGINT(20) UNSIGNED)",
+                           "SELECT SQL_BIG_RESULT srcPort, firstSwitched, SUM(bytes) FROM #srctable# WHERE " +
+                           "#params# GROUP BY firstSwitched DIV "+(unit/1000)+", srcPort", remDoubles, remExporterID, remTimeDiv);
+                } else if (trafficDst) {
+                    ok=dq.fillTable(tmpname,"CREATE TEMPORARY TABLE "+tmpname+" (port SMALLINT(5) UNSIGNED, firstSwitched INTEGER(10) UNSIGNED, bytes BIGINT(20) UNSIGNED)",
+                           "SELECT SQL_BIG_RESULT dstPort, firstSwitched, SUM(bytes) FROM #srctable# WHERE " +
+                           "#params# GROUP BY firstSwitched DIV "+(unit/1000)+", dstPort", remDoubles, remExporterID, remTimeDiv);
+                }
+                if (!ok) { return ""; }
+                
+                // generate the chart by querying the temporary table
 		
-    	long currXValue = start;
+    	long currXValue = startTime;
     	
     	Calendar tmpTime = new GregorianCalendar();
     	
@@ -601,15 +536,15 @@ public class ChartOutputCreator extends OutputCreator {
     	    				
     				paints = new Paint[]{Color.blue};
     				
-    				String statement = "SELECT SUM(bytes) FROM trafficTmp WHERE firstSwitched BETWEEN " + currXValue/1000 + " AND " + ((currXValue+unit)/1000-1);
+    				String statement = "SELECT SUM(bytes) FROM "+tmpname+" WHERE firstSwitched BETWEEN " + currXValue/1000 + " AND " + ((currXValue+unit)/1000-1);
     				
-    				result = s.executeQuery(statement);
+    				result = dq.queryTempDB(statement);
     				
     				result.first();
     				
     				data[0][i] = (double)result.getLong(1)/bytesDivisor;
     			
-    			} else if(trafficSrc || trafficDst) {
+                        } else if(trafficSrc || trafficDst) {
     				
     				int[] favouriteServices = new int[5];
     				
@@ -617,10 +552,10 @@ public class ChartOutputCreator extends OutputCreator {
     						Color.yellow, Color.cyan, Color.gray};
     				
     				//first find out which services were seen most often
-    				String statement =  "SELECT port, SUM(bytes) as amount FROM trafficTmp WHERE port<1024" +
+    				String statement =  "SELECT port, SUM(bytes) as amount FROM "+tmpname+" WHERE port<1024" +
 										" GROUP BY port ORDER BY amount DESC LIMIT 0,5";
     				
-    				result = s.executeQuery(statement);
+    				result = dq.queryTempDB(statement);
     				
     				int position = 0;
     				
@@ -631,7 +566,7 @@ public class ChartOutputCreator extends OutputCreator {
     					if (favouriteServices[position] == 0)
     						legendLabels[position]="Layer3-Traffic";
     					else
-    						legendLabels[position]=createPortOutput(favouriteServices[position], true);
+    						legendLabels[position]=dq.createPortOutput(favouriteServices[position], true);
     					
     					position++;
     					
@@ -640,10 +575,10 @@ public class ChartOutputCreator extends OutputCreator {
     				legendLabels[5]="Other";
     				
     				//now get all the traffic and sort amount of bytes into categories
-    				statement = "SELECT port, SUM(bytes) as amount FROM trafficTmp WHERE firstSwitched BETWEEN " + currXValue/1000 + " AND " + ((currXValue+unit)/1000-1) +
+    				statement = "SELECT port, SUM(bytes) as amount FROM "+tmpname+" WHERE firstSwitched BETWEEN " + currXValue/1000 + " AND " + ((currXValue+unit)/1000-1) +
 								" GROUP BY port";
     				
-    				result = s.executeQuery(statement);
+    				result = dq.queryTempDB(statement);
     				
     				while(result.next()) {
     						
@@ -695,9 +630,9 @@ public class ChartOutputCreator extends OutputCreator {
     					
     			currXValue += unit;
     			
-    		} catch (SQLException e) {
+    		} catch (Exception e) {
     			return "Error getting values from database:" + e.getMessage();
-    		}
+                }
     	}
     	
     	if (paints==null) {
@@ -711,6 +646,7 @@ public class ChartOutputCreator extends OutputCreator {
     			dataSeries.addIAxisPlotDataSet( new AxisChartDataSet( data, legendLabels, paints, ChartType.AREA, areaChartProperties ) );
     		else if(trafficSrc || trafficDst)
     			dataSeries.addIAxisPlotDataSet( new AxisChartDataSet( data, legendLabels, paints, ChartType.AREA_STACKED, areaChartProperties ) );
+                
     	} catch (ChartDataException e) {
     		output += e.getMessage();
     		throw new ChartDataException("Error generating pie.");
@@ -718,711 +654,438 @@ public class ChartOutputCreator extends OutputCreator {
     	
     	AxisChart axisChart = new AxisChart( dataSeries, chartProperties, axisProperties, legendProperties, width, height );
     	
-    	request.getSession().getServletContext().setAttribute("chart", axisChart);
+    	// store the generated chart in the servlet context
+        request.getSession().getServletContext().setAttribute("chart", axisChart);
 		
-		return output;
+        // return with eventual messages
+        return output;
+    }
+    /**
+     * Generates chart to show traffic over time divided by exporters. No legend for the chart is
+     * produced. The chart will be stored in the servlet context as parameter <code>chart</code>.
+     *
+     * @return  String that holds eventual messages such as error messages.
+     */
+    private String generateTrafficExpAreaChart() 
+    throws ChartDataException {
+	// flags to signal what scale the time axis uses
+        boolean minScale	= false;
+	boolean halfHourScale 	= false;
+	boolean dayScale	= false;
+        // number of distinct points on the time axis of the chart
+        int numDataPoints = 0;
+        // size of the time blocks used in the chart
+	long unit = 0;
+        // the arrays that will hold the data for the charts
+        double[][] 	data;
+	double[][] 	data2;
+	// array that will hold the names of each database for the chart label
+        String[] legendLabels;
+    	// object that helps to format the labels on the time scale
+        Calendar tmpTime = new GregorianCalendar();
+	// holds the results of the SQL queries needed to calculate the chart data
+        ResultSet result = null;
+
+        // ******** prepare the chart object **************
+        
+        // prepare the chart object by setting some attributes		
+	NumberFormat nf = NumberFormat.getNumberInstance();
+	nf.setMinimumIntegerDigits(2);
+        LegendProperties legendProperties = new LegendProperties();
+        AxisProperties axisProperties = new AxisProperties( false );
+        axisProperties.setXAxisLabelsAreVertical(true);
+        ChartProperties chartProperties = new ChartProperties();;
+        String xAxisTitle = "Time";
+	String yAxisTitle = "";
+       
+        // check the selected unit in which the amount of traffic should be shown
+        int bytesDivisor = 1;
+	if (outputUnit.equalsIgnoreCase("bytes")) {
+        	yAxisTitle = "Bytes";
+	} else if(outputUnit.equalsIgnoreCase("kilo")) {
+		yAxisTitle = "Kilobytes";
+		bytesDivisor = 1024;
+	} else if (outputUnit.equalsIgnoreCase("mega")) {
+		yAxisTitle = "Megabytes";
+		bytesDivisor = 1024*1024;
 	}
-	/*private String generateAreaChart(HttpServletRequest request, ResultSet result) 
-		throws ChartDataException {
 		
-		int 			numRows = 0;
-		long 			firstSwitched;
-		long 			bytes;
-		long 			lowerBound = 0;
-		long 			maxValue = 0;
-		boolean 		first = true;
-		int 			index = 0;
-		int				bytesDivisor = 1;
-		String 			debug = "";
-		String 			outputUnit = request.getParameter("unit");
+	// calculate number of time blocks to be used as data points on x-axis
+	if (startTime > endTime) {
+                throw new ChartDataException("End time is before start time.");
+        }
+	long duration = endTime - startTime;
+        if (duration <= 12*60*60*1000l) {
+                minScale = true;
+                numDataPoints = (int)(duration/(60*1000l));
+                unit = 60*1000;  //draw data every minute
+        } else if (duration <= 2*24*60*60*1000l) {
+                halfHourScale = true;
+                numDataPoints = (int)(duration/(30*60*1000l));
+                unit = 30*60*1000;
+                numDataPoints++;
+        } else {
+                dayScale = true;
+                numDataPoints = (int)(duration/(24*60*60*1000l));
+                unit = 24*60*60*1000l;
+                xAxisTitle = "Date";
+                numDataPoints++;
+        }
+        String[] xAxisLabels = new String[numDataPoints];
+        Arrays.fill(xAxisLabels,"No data");
+        Paint[] paints = null;
+        Stroke[] strokes = null;
+        Shape[] shapes = null;
+        
+        // ********** create and fill the temporary table *******
+        if (dq.fillTable (tmpname,"CREATE TEMPORARY TABLE "+tmpname+" (exporterID INTEGER(10) UNSIGNED, exporterIP INTEGER(10) UNSIGNED," + 
+           "bytes BIGINT(20) UNSIGNED, firstSwitched INTEGER(10) UNSIGNED)",
+           "SELECT SQL_BIG_RESULT exporterID, exporterIP, SUM(bytes) AS bytes, firstSwitched FROM #srctable# " +
+           "WHERE #params# " + 
+           "GROUP BY exporterID, firstSwitched DIV "+(unit/1000)+" ORDER BY exporterID,firstSwitched",
+           remDoubles, remExporterID, remTimeDiv)==false) {
+            throw new ChartDataException("<p>Error creating and filling temporary table!<p>"+dq.getOutput());
+        }
+
+        try {
+                // read list of exporters from temporary table
+                ArrayList expIDList = new ArrayList();
+                ArrayList expIPList = new ArrayList();
+                String queryTmp = "SELECT exporterID, exporterIP FROM "+tmpname+" GROUP BY exporterID ORDER BY exporterID";
+                result = dq.queryTempDB(queryTmp);
+                while (result.next()) {
+                    expIDList.add(new Long(result.getLong("exporterID")));
+                    expIPList.add(new Long(result.getLong("exporterIP")));
+                }
+                int expCount = expIDList.size();
+        
+                // prepare label and data objects for the chart
+                data = new double[expCount][numDataPoints];
+                for (int i=0; i<data.length; i++) { Arrays.fill(data[i],0); }
+                legendLabels = new String[expCount];
+                Arrays.fill(legendLabels,"No Data");
+                
+                // calculate the colors and strokes for each database
+                paints = new Paint[expCount]; 
+                strokes = new Stroke[expCount]; 
+                shapes = new Shape[expCount]; 
+                for (int i = 0; i<paints.length; i++) {
+                    strokes[i] = LineChartProperties.DEFAULT_LINE_STROKE;
+                    shapes[i] = null;
+                    paints[i] = Color.getHSBColor((float) i/paints.length,1,1);
+                }
+        
+                // ************ query the temporary tables to fill the data arrays of the charts ******
+           
+                // first: query the temporary table with all data (no doubles removed) to
+                //        get traffic recorded by each exporter
+                queryTmp = "SELECT exporterID, exporterIP, SUM(bytes) as amount,firstSwitched FROM "+tmpname+
+						" GROUP BY exporterID,firstSwitched DIV "+(unit/1000)+
+                                                " ORDER BY exporterID,firstSwitched";
+                result = dq.queryTempDB(queryTmp);
+                if (result == null) throw new ChartDataException("No data in given time span!");
+
+                // prepare looping through the query results
+                long currtime = 0;
+        	long currXValue = startTime;
+                boolean firstRun = true;
+                int i = 0;
+                long expID = 0;
+                long expIP = 0;
+                int currpoint = 0;
+                while(result.next()) {
+                        if (i==numDataPoints) { 
+                            // finished one database, prepare for the next
+                            i=0; currXValue = startTime; firstRun = false;
+                        }
+                        // retrieve exporter number of this row
+                        expID = result.getLong(1);
+                        // retrieve exporter IP of this row
+                        expIP = result.getLong(2);
+                        // check the time stamp of this row
+                        currtime = result.getLong(4)*1000;
+                        // test if the time stamp falls within current block on the time axis
+                        currpoint = ((int)(currtime/unit)) - ((int)(startTime/unit));
+                        if (currpoint == i) {
+                            // yes, there was traffic in this time block recorded by this exporter
+                            data[expIDList.indexOf(new Long(expID))][i] = (double)result.getLong(3)/bytesDivisor;
+                        } else {
+                            // no traffic in this time block for this database 
+                            data[expIDList.indexOf(new Long(expID))][i] = 0;
+                            if (currpoint<numDataPoints) result.previous();
+                        }
+                        // set name of the database as label
+                        legendLabels[expIDList.indexOf(new Long(expID))]=expID+" ("+dq.createIPOutput(expIP, false)+")";
+                        if (firstRun) {
+                            // set labels for the time axis
+                            if(minScale) {
+				tmpTime.setTimeInMillis(currXValue);
+        			xAxisLabels[i]=nf.format(tmpTime.get(Calendar.HOUR_OF_DAY)) + ":" + nf.format(tmpTime.get(Calendar.MINUTE));
+                            } else if(halfHourScale) {
+				tmpTime.setTimeInMillis(currXValue);
+				xAxisLabels[i]=nf.format(tmpTime.get(Calendar.HOUR_OF_DAY)) + ":" + nf.format(tmpTime.get(Calendar.MINUTE));
+                            } else if(dayScale) {
+				tmpTime.setTimeInMillis(currXValue);
+				xAxisLabels[i]=nf.format(tmpTime.get(Calendar.DATE)) + "." + nf.format(tmpTime.get(Calendar.MONTH)+1);
+                            }
+                        }
+    			// increase counters		
+    			currXValue += unit;
+                        i++;
+        	}
+                result.close();
+
+    	} catch (Exception e) {
+    		throw new ChartDataException("Error getting values from database:" + e.getMessage());
+        }
+    	
+        // ********* create the chart objects ***************
+
+        // create the chart that shows all traffic grouped by database
+	LineChartProperties lineChartProperties = new LineChartProperties(strokes, shapes);
+        IAxisDataSeries dataSeries = new DataSeries( xAxisLabels, xAxisTitle, yAxisTitle, request.getParameter("chartSelect"));
+      	dataSeries.addIAxisPlotDataSet( new AxisChartDataSet( data, legendLabels, paints, ChartType.LINE, lineChartProperties ) );
+    	AxisChart axisChart = new AxisChart( dataSeries, chartProperties, axisProperties, legendProperties, width, height );
+        
+        // store the generated charts in the servlet context
+        request.getSession().getServletContext().setAttribute("chart", axisChart);
+		
+        // return with eventual messages
+        return output;
+    }
+        
+    /**
+     * Generates area-charts for packet, size and duration analysis. No legend for the chart
+     * is produced.
+     * The chart will be stored in the servlet context as parameter <code>chart</code>.
+     *
+     * @return  String that holds eventual messages such as error messages.
+     */
+    private String generateAreaAnalysis() 
+    throws ChartDataException {
+		
+		boolean minScale	= false;
+		boolean halfHourScale 	= false;
+		boolean dayScale	= false;
+		
+                int numDataPoints = 0;
+    	
+		int j = 0;                
+                
+		long unit = 0;
+		
+		double[][] 	data;
+		
+		String title="";
+		String[] legendLabels;
+		
+		Paint[] paints = null;
+		
+		ResultSet result = null;
+                ResultSet resultmax = null;
+		
+                // create and fill temporary table
+                boolean ok=true;
+                if (pktAna) {
+                    ok=dq.fillTable (tmpname,"CREATE TEMPORARY TABLE "+tmpname+" (pkts INTEGER(10) UNSIGNED, amount INTEGER(10) UNSIGNED)", "SELECT SQL_BIG_RESULT pkts, count(*) FROM #srctable# WHERE " +
+                           "#params# GROUP BY pkts", remDoubles, remExporterID, remTimeDiv);
+                    /*dq.createTempTable(tmpname, "CREATE TEMPORARY TABLE "+tmpname+" (pkts INTEGER(10) UNSIGNED, amount INTEGER(10) UNSIGNED)");
+                    dq.fillTempTable (tmpname,"SELECT SQL_BIG_RESULT pkts, count(*) FROM #srctable# WHERE " +
+                           "#params# GROUP BY pkts");*/
+                } else if (sizeAna) {
+                    /*dq.createTempTable(tmpname, "CREATE TEMPORARY TABLE "+tmpname+" (bytes INTEGER(10) UNSIGNED, amount INTEGER(10) UNSIGNED)");
+                    dq.fillTempTable (tmpname,"SELECT SQL_BIG_RESULT (bytes-(bytes%100)) as kbytes, count(*) FROM #srctable# WHERE " +
+                           "#params# GROUP BY kbytes");
+                    */
+                    ok=dq.fillTable (tmpname,"CREATE TEMPORARY TABLE "+tmpname+" (bytes INTEGER(10) UNSIGNED, amount INTEGER(10) UNSIGNED)","SELECT SQL_BIG_RESULT (bytes/1024) as kbytes, count(*) FROM #srctable# WHERE " +
+                           "#params# GROUP BY kbytes", remDoubles, remExporterID, remTimeDiv);
+                } else if (durAna){
+                    ok=dq.fillTable (tmpname,"CREATE TEMPORARY TABLE "+tmpname+" (duration INTEGER(10) UNSIGNED, amount INTEGER(10) UNSIGNED)", "SELECT SQL_BIG_RESULT (lastSwitched-firstSwitched+1) as duration, count(*) FROM #srctable# WHERE " +
+                           "#params# GROUP BY duration", remDoubles, remExporterID, remTimeDiv);            
+                }   
+                if (!ok) { return ""; }
+
+                
+                // generate the chart by querying the temporary table
+                
+                //****************set some chart attributes*****************
 		
 		AreaChartProperties areaChartProperties = new AreaChartProperties();
-	    LegendProperties legendProperties = new LegendProperties();
-	    AxisProperties axisProperties = new AxisProperties( false );
-	    ChartProperties chartProperties = new ChartProperties();;
+                LegendProperties legendProperties = new LegendProperties();
 	    
-        axisProperties.setXAxisLabelsAreVertical(true);
+	    
+                AxisProperties axisProperties = new AxisProperties( false );
+                axisProperties.setXAxisLabelsAreVertical(true);
+       
+                ChartFont axisScaleFont = new ChartFont( new Font( "Georgia Negreta cursiva", Font.PLAIN, 13 ), Color.black );
         
-        LabelAxisProperties xAxisProperties= (LabelAxisProperties) axisProperties.getXAxisProperties();
-        LabelAxisProperties yAxisProperties= (LabelAxisProperties) axisProperties.getYAxisProperties();
-
-
-        ChartFont axisScaleFont = new ChartFont( new Font( "Georgia Negreta cursiva", Font.PLAIN, 13 ), Color.black );
-        xAxisProperties.setScaleChartFont( axisScaleFont );
-        yAxisProperties.setScaleChartFont( axisScaleFont );
-
-        ChartFont axisTitleFont = new ChartFont( new Font( "Arial Narrow", Font.PLAIN, 14 ), Color.black );
-        xAxisProperties.setTitleChartFont( axisTitleFont );
-        yAxisProperties.setTitleChartFont( axisTitleFont );
-
-        DataAxisProperties dataAxisProperties = (DataAxisProperties) yAxisProperties;
-
-        dataAxisProperties.setNumItems(10);
-
-        ChartFont titleFont = new ChartFont( new Font( "Georgia Negreta cursiva", Font.PLAIN, 14 ), Color.black );
-        chartProperties.setTitleFont( titleFont );
-
-        ValueLabelRenderer valueLabelRenderer = new ValueLabelRenderer(false, false, true, -1 );
-        valueLabelRenderer.setValueLabelPosition( ValueLabelPosition.ON_TOP );
-        valueLabelRenderer.useVerticalLabels( false );
-        areaChartProperties.addPostRenderEventListener( valueLabelRenderer );
+                LabelAxisProperties xAxisProperties= (LabelAxisProperties) axisProperties.getXAxisProperties();
+                xAxisProperties.setScaleChartFont( axisScaleFont );
         
-		String[] legendLabels = {"Traffic"};
-		Paint[] paints = new Paint[]{Color.blue};
-		String xAxisTitle = "Time";
-		String yAxisTitle = "";
+                LabelAxisProperties yAxisProperties= (LabelAxisProperties) axisProperties.getYAxisProperties();
+                yAxisProperties.setScaleChartFont( axisScaleFont );
+
+                ChartFont axisTitleFont = new ChartFont( new Font( "Arial Narrow", Font.PLAIN, 14 ), Color.black );
+                xAxisProperties.setTitleChartFont( axisTitleFont );
+                yAxisProperties.setTitleChartFont( axisTitleFont );
+
+                DataAxisProperties dataAxisProperties = (DataAxisProperties) yAxisProperties;
+                //number of items to displayed on yAxis               
+                dataAxisProperties.setNumItems(10);
+
+                ChartFont titleFont = new ChartFont( new Font( "Georgia Negreta cursiva", Font.PLAIN, 14 ), Color.black );
+                ChartProperties chartProperties = new ChartProperties();;
+                chartProperties.setTitleFont( titleFont );
+                
+                String xAxisTitle = null;
+                String yAxisTitle = null;
+                
+                // set the titles of the x and y axis
+                if (pktAna){
+                    xAxisTitle = "number of packets per flow";
+                    yAxisTitle = "amount";
+                }else if (sizeAna){
+                    xAxisTitle = "size in kilobytes per flow";
+                    yAxisTitle = "amount";
+                }else if (durAna){
+                    xAxisTitle = "duration in seconds per flow";
+                    yAxisTitle = "amount";
+                }
+              
 		
-		if (outputUnit.equalsIgnoreCase("bytes")) {
-			yAxisTitle = "Bytes";
-		} else if(outputUnit.equalsIgnoreCase("kilo")) {
-			yAxisTitle = "Kilobytes";
-			bytesDivisor = 1024;
-		} else if (outputUnit.equalsIgnoreCase("mega")) {
-			yAxisTitle = "Megabytes";
-			bytesDivisor = 1024*1024;
-		}
+		//************************************************************
 		
-        
-        long[] timeBounds = new long[2];
-        
-        //check if the time was restricted, if not create a 24h chart
-        if (createTimeQuery(request, timeBounds) == "") {
-        	
-        	Calendar cal = GregorianCalendar.getInstance();
-    		cal.add(Calendar.HOUR, -23);
-    		cal.set(Calendar.MINUTE, 0);
-    		cal.set(Calendar.SECOND, 0);
-    		cal.set(Calendar.MILLISECOND, 0);
-    		
-        	String title = "Traffic over the last 24 hours";
-        	double[][] 		data = new double[1][24];
-        	
-        	lowerBound = cal.getTimeInMillis();
-        	
-        	try {
-    			
-    			result.beforeFirst();
-    			
-    			while(result.next()) {
-    				
-    				numRows++;
-    				
-    				firstSwitched = 1000*result.getLong(1);
-    				bytes = result.getLong(2);
-    				
-    				/*if (first) {
-    					lowerBound = cal.getTimeInMillis();   					
-    					first = false;
-    				}*/
-    				
-    				/*if ((firstSwitched >= lowerBound) && (firstSwitched<(lowerBound+24*60*60*1000))) {
-    					index = (int)((firstSwitched-lowerBound)/(60*60*1000));
-    				
-    					//debug += "Abstand zur lowerBound: " + (firstSwitched-lowerBound) + "\n";
-    					//debug += index + "\n";
-    					//debug += lowerBound + "\n";	
-    					data[0][index] += bytes/bytesDivisor;
-    				}
-    			}
-    		} catch (SQLException e) {
-    			return e.getMessage();
-    		}
-    		
-    		for (int i=0; i<data[0].length; i++)
-    			output += "Bytes[" + i + "]: " + data[0][i] + "\n";
-    		
-    		if (numRows == 0)
-    			return "null";
-    		    		
-    		int currHour = cal.get(Calendar.HOUR_OF_DAY);
-			
-        	String[] xAxisLabels = {String.valueOf(currHour),
-        							String.valueOf((currHour+1)%24),
-									String.valueOf((currHour+2)%24),
-									String.valueOf((currHour+3)%24),
-									String.valueOf((currHour+4)%24),
-									String.valueOf((currHour+5)%24),
-									String.valueOf((currHour+6)%24),
-									String.valueOf((currHour+7)%24),
-									String.valueOf((currHour+8)%24),
-									String.valueOf((currHour+9)%24),
-									String.valueOf((currHour+10)%24),
-									String.valueOf((currHour+11)%24),
-									String.valueOf((currHour+12)%24),
-									String.valueOf((currHour+13)%24),
-									String.valueOf((currHour+14)%24),
-									String.valueOf((currHour+15)%24),
-									String.valueOf((currHour+16)%24),
-									String.valueOf((currHour+17)%24),
-									String.valueOf((currHour+18)%24),
-									String.valueOf((currHour+19)%24),
-									String.valueOf((currHour+20)%24),
-									String.valueOf((currHour+21)%24),
-									String.valueOf((currHour+22)%24),
-									String.valueOf((currHour+23)%24)};
-    		//String[] xAxisLabels = {"0","1","2","3","4","5","6","7","8","9","10","11","12",
-    			//					"13","14","15","16","17","18","19","20","21","22","23"};
-	
+                // Create a title with start and end time
+           
+		title = request.getParameter("chartSelect");
+                
+                if (startTime > endTime) {
+                    return "End time is before start time.";
+                }
 		
-        	IAxisDataSeries dataSeries = new DataSeries( xAxisLabels, xAxisTitle, yAxisTitle, title );
-        
-        	try {
-        		dataSeries.addIAxisPlotDataSet( new AxisChartDataSet( data, legendLabels, paints, ChartType.AREA, areaChartProperties ) );
-        	} catch (ChartDataException e) {
-        		throw new ChartDataException("Error generating pie.");
-        	}
+		long duration = endTime - startTime;
 		
-        	AxisChart axisChart = new AxisChart( dataSeries, chartProperties, axisProperties, legendProperties, width, height );
-        
-        	request.getSession().getServletContext().setAttribute("chart", axisChart);
-        	
-        	/*try {
-        		JPEGEncoder.encode(axisChart, 1.0f, new FileOutputStream(new File("axisChart.jpg")));
-        	} catch (IOException e) {
-        		return debug + " IOException:" + e.getMessage();
-        	} catch (PropertyException e) {
-        		return debug + " ProperyException:" + e.getMessage();
-        	}*/
-        /*} else {
-        	
-        	short startYear 	= Short.parseShort(request.getParameter("startYear"));
-        	short startMonth 	= (short)(Short.parseShort(request.getParameter("startMonth"))-1);
-        	short startDay 		= Short.parseShort(request.getParameter("startDay"));
-        	short startHour		= Short.parseShort(request.getParameter("startHour"));
-        	short startMin		= Short.parseShort(request.getParameter("startMin"));
-        	
-        	short endYear		= Short.parseShort(request.getParameter("endYear"));
-        	short endMonth		= (short)(Short.parseShort(request.getParameter("endMonth"))-1);
-        	short endDay		= Short.parseShort(request.getParameter("endDay"));
-        	short endHour		= Short.parseShort(request.getParameter("endHour"));
-        	short endMin		= Short.parseShort(request.getParameter("endMin"));
-        	
-        	long unit = 0;
-        	short numDataPoints = 0;
-        	boolean dayScale = false;
-        	boolean halfHourScale = false;
-        	boolean minScale = false;
-        	
-        	String title = "Traffic over some time";
-        	
-        	Calendar startTime 	= new GregorianCalendar();
-        	
-        	startTime.set(startYear, startMonth, startDay, startHour, startMin);
-        	startTime.set(Calendar.MILLISECOND, 0);
-        	
-        	Calendar endTime 	= new GregorianCalendar();
-        	
-        	endTime.set(endYear, endMonth, endDay, endHour, endMin);
-        	endTime.set(Calendar.MILLISECOND, 0);
-        	
-        	long start, end;
-        	
-        	if ((start=startTime.getTimeInMillis()) > (end=endTime.getTimeInMillis())) {
-        		return "End time is before start time.";
-        	}
-        	
-        	long duration = end - start;
-        	
-        	//duration less than one hour
-        	if (duration <= 60*60*1000l) {
-        		minScale = true;
-        		numDataPoints = (short)(duration/(60*1000l));
-        		unit = 60*1000;  //draw data every minute
-        	} else if (duration <= 7*24*60*60*1000l) {
-        		halfHourScale = true;
-        		numDataPoints = (short)(duration/(30*60*1000l));
-        		unit = 30*60*1000;
-        	} else {
-        		dayScale = true;
-        		numDataPoints = (short)(duration/(24*60*60*1000l));
-        		unit = 24*60*60*1000l;
-        		xAxisTitle = "Date";
-        	} 
-        	
-        	String[] xAxisLabels = new String[numDataPoints];
-        	double[][] 	data = new double[1][numDataPoints];
-        	
-        	Calendar tmpTime = new GregorianCalendar();
-        	tmpTime.setTimeInMillis(startTime.getTimeInMillis());
-        	tmpTime.roll(Calendar.DAY_OF_YEAR, -1);
-        	
-        	for (int i=0; i<numDataPoints; i++) {
-        		if (halfHourScale)
-        			xAxisLabels[i] = String.valueOf((startTime.get(Calendar.HOUR)+i)%24);
-        		else if (dayScale) {
-        			tmpTime.roll(Calendar.DAY_OF_YEAR, 1);
-        			xAxisLabels[i] = String.valueOf(tmpTime.getTime());
-        		} else if (minScale)
-        			xAxisLabels[i] = String.valueOf((startTime.get(Calendar.MINUTE)+i)%60);
-        	}
-        	
-        	try {
-    			
-    			result.beforeFirst();
-    			
-    			while(result.next()) {
-    				
-    				numRows++;
-    				
-    				firstSwitched = 1000*result.getLong(1);
-    				bytes = result.getLong(2)/bytesDivisor;
+                
+                // Get the maximum value to limit the x-axis
+                try {
+                    if (pktAna){
+                        resultmax = dq.queryTempDB ("SELECT max(pkts) as maxx, max(amount) as maxy FROM "+tmpname);
+                    }
+                    else if (sizeAna){
+                        resultmax = dq.queryTempDB ("SELECT max(bytes) as maxx, max(amount) as maxy FROM "+tmpname);
+                    }
+                    else if (durAna){
+                        dq.queryTempDB ("DELETE FROM "+tmpname+" WHERE duration < 0");
+                        resultmax = dq.queryTempDB ("SELECT max(duration) as maxx, max(amount) as maxy FROM "+tmpname);
+                    }
+                    while (resultmax.next()){
+                        output += "maximum x= " + resultmax.getLong("maxx") + " maximum y= " + resultmax.getLong("maxy");
+                        // number of points to be displayed on x-axis; add 2 to have 1 zero-value at the end -> more beautiful
+                        numDataPoints = resultmax.getInt("maxx") + 2;
+                    }
+                }catch (SQLException e) {
+                    return "Error getting values from database:" + e.getMessage();
+                }catch (NullPointerException e) {
+                    return "Error getting values from database:" + e.getMessage();
+                }
+
+                unit = 1;
+
+                String[] xAxisLabels = new String[numDataPoints];
+                data = new double[1][numDataPoints];
+                paints = new Paint[]{Color.red};
+                
+                long currXValue = 0;
+                double test;
+               
+                try {
+                    if (pktAna) {
+                        // get the results from the database
+                        result = dq.queryTempDB ("SELECT pkts, sum(amount) AS amount FROM "+tmpname+" GROUP by pkts ORDER BY amount DESC");
+                        // assign values of resultSet to the data points
+                        while (result.next()){
+                            j = result.getInt("pkts");
+                            data [0][j] = result.getDouble("amount");
+                        }
+                    }
+                    else if (sizeAna) {
+                        // get the results from the database
+                        result = dq.queryTempDB ("SELECT bytes, sum(amount) AS amount FROM "+tmpname+" GROUP by bytes ORDER BY amount DESC");
+                        // assign values of resultSet to the data points
+                        while (result.next()){
+                            j = result.getInt("bytes");
+                            data [0][j] = result.getDouble("amount");
+                        }
+                    }
+                    else if (durAna) {
+                        // get the results from the database
+                        result = dq.queryTempDB ("SELECT duration, sum(amount) AS amount FROM "+tmpname+" GROUP by duration ORDER BY amount DESC");    
+                        // assign values of resultSet to the data points
+                        while (result.next()){
+                            j = result.getInt("duration");
+            //                if ( j>=0 && j<=1000 ){
+            //                    test = result.getDouble("amount");
+            //                    if ( test>=0 && test<=1000 ){
+                                    data [0][j] = result.getDouble("amount");
+            //                    }
+            //                }
+                        }
+                    }
+                    
+                    // set last value to zero to make it more beautiful
+                    data [0][j+1] = 0;
+                    
+                }
+                catch (SQLException e) {
+                    return "Error getting values from database:" + e.getMessage();
+                } 
+                catch (OutOfMemoryError e) {
+                    return "Query is too general and used up all the memory." + e.getMessage();
+                }
+                catch (NullPointerException e) {
+                    return "Error getting values from database:" + e.getMessage();
+                }
+               
+               for (int i=0; i<numDataPoints; i++) { 
+                xAxisLabels[i]= Long.toString(currXValue);
+                currXValue += unit;
+               }
+   	
+    	if (paints==null) {
+    		return "Paint array not initialized.";
+    	}
     	
-    				/*if (first) {
-    					lowerBound = cal.getTimeInMillis();   					
-    					first = false;
-    				}*/
-    				
-    				/*if ((firstSwitched >= start) && (firstSwitched<end)) {
-    					index = (int)((firstSwitched-start)/unit);
-    				
-    					//debug += "Abstand zur lowerBound: " + (firstSwitched-lowerBound) + "\n";
-    					//debug += index + "\n";
-    					//debug += lowerBound + "\n";	
-    					data[0][index] += bytes;
-    					
-    					if (data[0][index] > maxValue)
-    						maxValue = (long)data[0][index];
-    				}
-    			}
-    		} catch (SQLException e) {
-    			return e.getMessage();
-    		} //catch (ArrayIndexOutOfBoundsException e) {
-    			//return "Index: " + index + " data[0].length: " + data[0].length;
-    		//}
-    		
-    		if (numRows == 0)
-    			return "null";
-    		
-    		debug += maxValue;
-    		
-    		int logarithm = (int)(Math.log(maxValue)/Math.log(10));
-    		
-    		dataAxisProperties.setRoundToNearest( logarithm-2 );
-    			
-        	IAxisDataSeries dataSeries = new DataSeries( xAxisLabels, xAxisTitle, yAxisTitle, title );
-            
-        	try {
-        		dataSeries.addIAxisPlotDataSet( new AxisChartDataSet( data, legendLabels, paints, ChartType.AREA, areaChartProperties ) );
-        	} catch (ChartDataException e) {
-        		throw new ChartDataException("Error generating pie.");
-        	}
-        	
-        	AxisChart axisChart = new AxisChart( dataSeries, chartProperties, axisProperties, legendProperties, width, height );
-        	
-        	request.getSession().getServletContext().setAttribute("chart", axisChart);
-        }
+        // Create the dataSeries
+    	IAxisDataSeries dataSeries = new DataSeries( xAxisLabels, xAxisTitle, yAxisTitle, title );
         
-		return debug;
-	}*/
+        
+        // Add the DataSet
+    	try {
+            dataSeries.addIAxisPlotDataSet( new AxisChartDataSet( data, null, paints, ChartType.AREA, areaChartProperties ) );
+    	} catch (ChartDataException e) {
+            output += e.getMessage();
+            throw new ChartDataException("Error generating Area Chart.");
+    	}
+    	
+        // Create the AxisChart
+    	AxisChart axisChart = new AxisChart( dataSeries, chartProperties, axisProperties, null, width, height );
+    	
+        
+    	// store the generated chart in the servlet context
+        request.getSession().getServletContext().setAttribute("chart", axisChart);
 	
-	private String createSQLQuery(HttpServletRequest request, Statement s) {
-		
-		String selectedChart = "";
-		boolean ipProtDistr = false;
-		boolean applProtDistr = false;
-		
-		String statement = "";
-		String srcIPQuery = "";
-		String dstIPQuery = "";
-		String srcPortQuery = "";
-		String dstPortQuery = "";
-		String protoQuery = "";
-		String tosQuery = "";
-		String timeQuery = "";
-		boolean notFirst = false;
-		String order = "";
-		
-		long[] timeBounds = new long[2];
-	
-		boolean portsAggregated = false;
-		boolean tosMissing = false;
-		
-		timeQuery = createTimeQuery(request, timeBounds);
-
-		LinkedList tables = getTables(s, timeBounds);
-		
-		Iterator it = tables.listIterator();
-	
-		while (it.hasNext()) {
-		
-			String currTable = (String)it.next();
-		
-			if (currTable.charAt(0) == 'w') {
-				tosMissing = true;
-				portsAggregated = true;
-			} else if (currTable.charAt(0) == 'd') {
-				tosMissing = true;
-			}
-		}
-	
-		srcIPQuery = createIPQuery(request.getParameter("srcIP"), "srcIP");
-		
-		dstIPQuery = createIPQuery(request.getParameter("dstIP"), "dstIP");
-		
-		srcPortQuery = createPortQuery(request.getParameter("srcPort"), "srcPort", portsAggregated);
-		
-		dstPortQuery = createPortQuery(request.getParameter("dstPort"), "dstPort", portsAggregated);
-		
-		protoQuery = createProtoQuery(request.getParameter("proto"), "proto");
-		
-		if (!tosMissing) {
-			tosQuery = createTosQuery(request.getParameter("tos"), "dstTos");
-		}
-		
-		it = tables.listIterator();
-		
-		while (it.hasNext()) {
-			
-			if (appPieSrc) {
-				statement = "INSERT INTO appTmp (";
-				statement += "SELECT SQL_BIG_RESULT srcPort, SUM(bytes) FROM ";
-			} else if(appPieDst) {
-				statement = "INSERT INTO appTmp (";
-				statement += "SELECT SQL_BIG_RESULT dstPort, SUM(bytes) FROM ";
-			} else if (ipPie) {
-				statement = "INSERT INTO ipTmp (";
-				statement += "SELECT SQL_BIG_RESULT proto, SUM(bytes) FROM ";
-			} else if (traffic) {
-				statement = "INSERT INTO trafficTmp (";
-				statement += "SELECT SQL_BIG_RESULT firstSwitched, SUM(bytes) FROM ";
-			}
-			
-			statement += (String)it.next();
-			
-			if (srcIPQuery != "") {
-				statement += " WHERE " + srcIPQuery;
-				notFirst=true;
-			} 
-			if (dstIPQuery != "") {
-				if (notFirst)
-					statement += " AND ";
-				else 
-					statement += " WHERE ";
-				statement += dstIPQuery;
-				notFirst=true;
-			}
-			if (srcPortQuery != "") {
-				if (notFirst)
-					statement += " AND ";
-				else
-					statement += " WHERE ";
-				statement += srcPortQuery;
-				notFirst=true;
-			}
-			if (dstPortQuery != "") {
-				if (notFirst)
-					statement += " AND ";
-				else
-					statement += " WHERE ";
-				statement += dstPortQuery;
-				notFirst=true;
-			}
-			if (protoQuery != "") {
-				if (notFirst)
-					statement += " AND ";
-				else
-					statement += " WHERE ";
-				statement += protoQuery;
-				notFirst=true;
-			}
-			
-			if (tosQuery != "") {
-				if (notFirst)
-					statement += " AND ";
-				else
-					statement += "WHERE ";
-				statement += tosQuery;
-				notFirst=true;
-			}
-			
-			if (timeQuery != "") {
-				if(notFirst)
-					statement += " AND ";
-				else
-					statement += " WHERE ";
-				statement += timeQuery;
-				notFirst=true;
-			}
-			
-			if (appPieSrc) {
-				
-				if (ignoreHighPorts) {
-					if (notFirst)
-						statement += " AND ";
-					else
-						statement += " WHERE ";
-				
-					statement += " srcPort BETWEEN 1 AND 1023 GROUP BY srcPort";
-				} else
-					statement += " GROUP BY srcPort";
-				
-			} else if (appPieDst) {
-				
-				if (ignoreHighPorts) {
-					if (notFirst)
-						statement += " AND ";
-					else
-						statement += " WHERE ";
-	
-					statement += " dstPort BETWEEN 1 AND 1023 GROUP BY dstPort";
-				} else 
-					statement += " GROUP BY dstPort";
-			
-			} else if (ipPie) {
-				statement += " GROUP BY proto";
-			} else if (traffic) {
-				statement += " GROUP BY firstSwitched";
-			}
-			
-			statement += ")";
-	
-			try {
-				s.execute(statement);
-			} catch (SQLException e) {
-				//output += "Couldn't insert data into temporary table.";
-				output += "Error filling temporary table (createSQLQuery): " + e.getMessage() + "\n";
-				
-			}
-			
-			notFirst=false;
-		}
-		
-		if (statement == "") {
-			output += "No data for given time range available.\n";
-			return "";
-		}
-		
-		if (appPieSrc || appPieDst) {
-			
-			statement = "SELECT port, SUM(bytes) AS sum FROM appTmp GROUP BY port ORDER BY sum DESC";
-		} else if(ipPie) {
-			statement = "SELECT proto, SUM(bytes) AS sum FROM ipTmp GROUP BY proto ORDER BY sum DESC";
-		} else if(traffic) {
-			statement = "SELECT firstSwitched, bytes FROM trafficTmp";
-		}
-		
-		return statement;
-		
-		
-		/*
-		} else if (selectedChart.equalsIgnoreCase("Traffic Over Time")) {
-			query = "SELECT firstSwitched, bytes FROM flow ";
-			query += createWhereClause(request);
-			query += " ORDER BY firstSwitched";
-		}
-		
-		return query;*/	
-	}
-	
-	private void fillTemporaryTable(HttpServletRequest request, Statement s) {
-		
-		String selectedChart = "";
-		boolean ipProtDistr = false;
-		boolean applProtDistr = false;
-		
-		String statement = "";
-		String srcIPQuery = "";
-		String dstIPQuery = "";
-		String srcPortQuery = "";
-		String dstPortQuery = "";
-		String protoQuery = "";
-		String tosQuery = "";
-		String timeQuery = "";
-		boolean notFirst = false;
-		String order = "";
-		
-		long[] timeBounds = new long[2];
-	
-		boolean portsAggregated = false;
-		boolean tosMissing = false;
-		
-		timeQuery = createTimeQuery(request, timeBounds);
-
-		LinkedList tables = getTables(s, timeBounds);
-		
-		Iterator it = tables.listIterator();
-	
-		while (it.hasNext()) {
-		
-			String currTable = (String)it.next();
-		
-			if (currTable.charAt(0) == 'w') {
-			
-				portsAggregated = true;
-			} else if (currTable.charAt(0) == 'd') {
-				tosMissing = true;
-			}
-		}
-	
-		srcIPQuery = createIPQuery(request.getParameter("srcIP"), "srcIP");
-		
-		dstIPQuery = createIPQuery(request.getParameter("dstIP"), "dstIP");
-		
-		srcPortQuery = createPortQuery(request.getParameter("srcPort"), "srcPort", portsAggregated);
-		
-		dstPortQuery = createPortQuery(request.getParameter("dstPort"), "dstPort", portsAggregated);
-		
-		protoQuery = createProtoQuery(request.getParameter("proto"), "proto");
-		
-		if (!tosMissing) {
-			tosQuery = createTosQuery(request.getParameter("tos"), "dstTos");
-		}
-		
-		it = tables.listIterator();
-		
-		while (it.hasNext()) {
-			
-			if (appPieSrc) {
-				statement = "INSERT INTO appTmp (";
-				statement += "SELECT SQL_BIG_RESULT srcPort, SUM(bytes) FROM ";
-			} else if(appPieDst) {
-				statement = "INSERT INTO appTmp (";
-				statement += "SELECT SQL_BIG_RESULT dstPort, SUM(bytes) FROM ";
-			} else if (ipPie) {
-				statement = "INSERT INTO ipTmp (";
-				statement += "SELECT SQL_BIG_RESULT proto, SUM(bytes) FROM ";
-			} else if (traffic) {
-				statement = "INSERT INTO trafficTmp (";
-				statement += "SELECT SQL_BIG_RESULT firstSwitched, SUM(bytes) FROM ";
-			} else if (trafficSrc) {
-				statement = "INSERT INTO trafficTmp (";
-				statement += "SELECT SQL_BIG_RESULT srcPort, firstSwitched, SUM(bytes) FROM ";
-			} else if (trafficDst) {
-				statement = "INSERT INTO trafficTmp (";
-				statement += "SELECT SQL_BIG_RESULT dstPort, firstSwitched, SUM(bytes) FROM ";
-			}
-			
-			statement += (String)it.next();
-			
-			if (srcIPQuery != "") {
-				statement += " WHERE " + srcIPQuery;
-				notFirst=true;
-			} 
-			if (dstIPQuery != "") {
-				if (notFirst)
-					statement += " AND ";
-				else 
-					statement += " WHERE ";
-				statement += dstIPQuery;
-				notFirst=true;
-			}
-			if (srcPortQuery != "") {
-				if (notFirst)
-					statement += " AND ";
-				else
-					statement += " WHERE ";
-				statement += srcPortQuery;
-				notFirst=true;
-			}
-			if (dstPortQuery != "") {
-				if (notFirst)
-					statement += " AND ";
-				else
-					statement += " WHERE ";
-				statement += dstPortQuery;
-				notFirst=true;
-			}
-			if (protoQuery != "") {
-				if (notFirst)
-					statement += " AND ";
-				else
-					statement += " WHERE ";
-				statement += protoQuery;
-				notFirst=true;
-			}
-			
-			if (tosQuery != "") {
-				if (notFirst)
-					statement += " AND ";
-				else
-					statement += " WHERE ";
-				statement += tosQuery;
-				notFirst=true;
-			}
-			
-			if (timeQuery != "") {
-				if(notFirst)
-					statement += " AND ";
-				else
-					statement += " WHERE ";
-				statement += timeQuery;
-				notFirst=true;
-			}
-			
-			if (appPieSrc) {
-				
-				if (notFirst)
-					statement += " AND ";
-				else
-					statement += " WHERE ";
-
-				//statement += " srcPort BETWEEN 1 AND 1024 GROUP BY srcPort";
-				statement += "  GROUP BY srcPort";
-				
-			} else if (appPieDst) {
-				
-				if (notFirst)
-					statement += " AND ";
-				else
-					statement += " WHERE ";
-	
-				//statement += " dstPort BETWEEN 1 AND 1024 GROUP BY dstPort";
-				statement += "  GROUP BY dstPort";
-			
-			} else if (ipPie) {
-				statement += " GROUP BY proto";
-			} else if (traffic) {
-				statement += " GROUP BY firstSwitched";
-			} else if (trafficSrc) {
-				
-				if (ignoreHighPorts) {
-					if (notFirst)
-						statement += " AND ";
-					else
-						statement += " WHERE ";
-	
-					statement += " srcPort BETWEEN 1 AND 1023 GROUP BY firstSwitched, srcPort";
-				} else 
-					statement += " GROUP BY firstSwitched, srcPort";
-			} else if (trafficDst) {
-				
-				if (ignoreHighPorts) {
-					if (notFirst)
-						statement += " AND ";
-					else
-						statement += " WHERE ";
-	
-					statement += " dstPort BETWEEN 1 AND 1023 GROUP BY firstSwitched, dstPort";
-				} else 
-					statement += " GROUP BY firstSwitched, dstPort";
-			}
-			
-			statement += ")";
-	
-			try {
-				s.execute(statement);
-			} catch (SQLException e) {
-				//output += "Couldn't insert data into temporary table.";
-				output += "Error filling temporary table: " + e.getMessage() + "\n";
-				
-			}
-			
-			notFirst=false;
-		}
-		
-		if (statement == "") {
-			output += "No data for given time range available.\n";
-			return;
-		}
-		
-		return;
-		
-	}
-	
-	/**
-	 * @return Returns the contentType.
-	 */
-	public String getContentType() {
-		return contentType;
-	}
+        // return with eventual messages
+        //output += "";
+        //output += " 1=" + data[0][0] + ", 2=" + data [0][1] + ", 3=" + data[0][2] + ", 4=" + data[0][3] + ", 5=" + data[0][4]+ ", 6=" + data[0][5];
+        return output;
+    }
+        	
+    /**
+     * Returns the MIME-type of the output produced by this class.
+     *
+     * @return  String that holds the MIME-type of the output produced by this class.
+     */
+    public String getContentType() {
+            return contentType;
+    }
 }

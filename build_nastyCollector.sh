@@ -1,10 +1,5 @@
 #!/bin/sh
 
-if [ `id -u` -ne 0 ] ; then
-	echo "Installation must be started as root. Exiting."
-	exit -1
-fi
-
 echo;echo
 echo "************************************************************************"
 echo "This script builds the nasty collector only."
@@ -12,6 +7,22 @@ echo "************************************************************************"
 echo;echo
 
 JAVA_HOME=/usr/lib/SunJava2-1.4.2
+
+if [ ! -d $JAVA_HOME ] ; then
+	echo -n "JAVA_HOME is incorrect. Enter correct path: "
+	read JAVA_HOME
+
+	if [ ! -d $JAVA_HOME ] ; then
+		echo "Path is incorrect. Exiting."
+		exit -1
+	fi
+fi
+
+if [ ! -f $JAVA_HOME/bin/javac ] ; then
+	echo "Java compiler could not be found. Exiting."
+	exit -1
+fi
+
 CURR=`pwd`
 CLASSPATH=$CURR/src
 INSTALLPATH=$CURR/nastyCollector
@@ -26,7 +37,7 @@ if [ "$?" -ne "0" ] ; then
 fi
 
 cp collector.cfg $INSTALLPATH
-cp mysql-connector-java-3.0.16-ga-bin.jar $INSTALLPATH
+cp lib/mysql-connector-java-3.0.16-ga-bin.jar $INSTALLPATH
 echo;echo
 echo "************************************************************************"
 echo "The data collector was copied to $INSTALLPATH and can be configured"

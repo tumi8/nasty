@@ -53,7 +53,7 @@
      </web-resource-collection>
 
      <auth-constraint>
-	 <role-name>netadmin</role-name>
+	 <role-name>admin</role-name>
      </auth-constraint>
 
      <user-data-constraint>
@@ -71,18 +71,103 @@
    </login-config>
 
    <security-role>
-     <role-name>netadmin</role-name>
+     <role-name>admin</role-name>
    </security-role>
-
 
    <resource-ref>
 	   <description>
 		   Resource reference to a factory for java.sql.Connection
-		   instances that may be used for talking to a particular
-		   database that is configured in the server.xml file.
+		   instances that may be used for talking to local
+		   database (used for combining remote tables)
+                   that is configured in the context.xml file.
 	   </description>
 	   <res-ref-name>
-		   jdbc/FlowDB
+		   jdbc/LocalDB
+	   </res-ref-name>
+	   <res-type>
+		   javax.sql.DataSource
+	   </res-type>
+	   <res-auth>
+		   Container
+	   </res-auth>
+   </resource-ref>
+
+   <resource-ref>
+	   <description>
+		   Resource reference to a factory for java.sql.Connection
+		   instances that may be used for talking to one local or remote
+		   database that is configured in the context.xml file.
+	   </description>
+	   <res-ref-name>
+		   jdbc/QueryDB1
+	   </res-ref-name>
+	   <res-type>
+		   javax.sql.DataSource
+	   </res-type>
+	   <res-auth>
+		   Container
+	   </res-auth>
+   </resource-ref>
+
+   <resource-ref>
+	   <description>
+		   Resource reference to a factory for java.sql.Connection
+		   instances that may be used for talking to one local or remote
+		   database that is configured in the context.xml file.
+	   </description>
+	   <res-ref-name>
+		   jdbc/QueryDB2
+	   </res-ref-name>
+	   <res-type>
+		   javax.sql.DataSource
+	   </res-type>
+	   <res-auth>
+		   Container
+	   </res-auth>
+   </resource-ref>
+
+   <resource-ref>
+	   <description>
+		   Resource reference to a factory for java.sql.Connection
+		   instances that may be used for talking to one local or remote
+		   database that is configured in the context.xml file.
+	   </description>
+	   <res-ref-name>
+		   jdbc/QueryDB3
+	   </res-ref-name>
+	   <res-type>
+		   javax.sql.DataSource
+	   </res-type>
+	   <res-auth>
+		   Container
+	   </res-auth>
+   </resource-ref>
+
+   <resource-ref>
+	   <description>
+		   Resource reference to a factory for java.sql.Connection
+		   instances that may be used for talking to one local or remote
+		   database that is configured in the context.xml file.
+	   </description>
+	   <res-ref-name>
+		   jdbc/QueryDB4
+	   </res-ref-name>
+	   <res-type>
+		   javax.sql.DataSource
+	   </res-type>
+	   <res-auth>
+		   Container
+	   </res-auth>
+   </resource-ref>
+
+   <resource-ref>
+	   <description>
+		   Resource reference to a factory for java.sql.Connection
+		   instances that may be used for talking to one local or remote
+		   database that is configured in the context.xml file.
+	   </description>
+	   <res-ref-name>
+		   jdbc/QueryDB5
 	   </res-ref-name>
 	   <res-type>
 		   javax.sql.DataSource
@@ -141,7 +226,5 @@
 	   <servlet-name>PdfDeliverer</servlet-name>
 	   <url-pattern>/PdfDeliverer</url-pattern>
    </servlet-mapping>
-
-   
 
 </web-app>

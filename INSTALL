@@ -1,33 +1,68 @@
-Installing nasty
------------------------------------------------
+Installing NASTY
+----------------
 
-1. Install mysql 4.0.23
+A) Installation and preparation of MySQL:
 
-2. Create tables needed by nasty:
-	mysql < prepare.mysql	(NOT TESTED!!!)
-3. Insert user and password into 'users' table.
+1. Install mysql 4.1 or higher, see file SSL-INSTALL for adding SSL capabilities
 
-4. Insert same user and role 'netadmin' into 'user_roles' table.
+2. Create database "nasty" and tables needed by nasty:
+	mysql < prepare.mysql	
 
-------------------------
+3. In case you want to install the Tomcat-based GUI:
+   - Insert user and password into 'users' table of the nasty database
+   - Insert same user and role 'admin' into 'user_roles' table
+   The user and password are used for login to the GUI.
 
-5. Install Tomcat 5.0.28.
+   Example:
+   mysql> insert into user_roles ('nasty_user', 'admin');
+   mysql> insert into users values ('nasty_user', 'password');
 
-6. Copy mysql-connector-java-3.0.16-ga-bin.jar to $TOMCAT_HOME/common/lib.
+----------------
 
-7. Uncomment SSL-Connector in $TOMCAT_HOME/conf/server.xml to allow 
-   SSL-Connections.
+B) Installation and praparation of Tomcat (for the GUI):
 
-8. Generate key as described in $TOMCAT_HOME/conf/server.xml.
+1. Install Tomcat 5.0 or higher
 
-------------------------
+2. Copy mysql-connector-java-3.0.16-ga-bin.jar to $TOMCAT_HOME/common/lib
 
-9. Run install.sh and follow the commands given at the end.
+3. Uncomment SSL-Connector in $TOMCAT_HOME/conf/server.xml to allow 
+   SSL-Connections
+
+4. Generate key as described in $TOMCAT_HOME/conf/server.xml
+
+----------------
+
+C) Building the IPFIX collector:
+
+1. Edit build_nastyCollector.sh and adapt $JAVA_HOME if necessary
+
+2. Execute build_nastyCollector.sh and follow the instructions given at the end
+
+----------------
+
+D) Building the GUI:
+
+1. Have a look at tomcat_content/META-INF/context.xml and make necessary changes.
+
+2. Edit build_gui.sh and adapt $JAVA_HOME if necessary
+
+3. Execute build_gui.sh and follow the instructions given at the end.
    
-    NOTE: install.sh creates a /usr/local/nastyCollector directory
-   	 and a script called nastyColl in /usr/local/bin
+4. Use a browser and open http://localhost:8080/nasty 
 
+----------------
+
+E) Building and installation of both collector and GUI with the old script:
+
+1. Have a look at tomcat_content/META-INF/context.xml and make necessary changes.
+
+2. Run install.sh and follow the instructions given at the end.
+
+NOTE: install.sh creates a /usr/local/nastyCollector directory
+      and a script called nastyColl in /usr/local/bin
+      (therefore, you need to be root to run install.sh)
  
-10. Run the nastyColl script (at the moment only root can do that) to start 
-    the data collection and visit http://localhost:8080/nasty to see the 
-    web interface.
+3. Run the nastyColl script (at the moment only root can do that) to start 
+   the data collection and visit http://localhost:8080/nasty (or http://localhost:8084/nasty) to see 
+   the web interface.
+

@@ -1,12 +1,13 @@
-/*
- * Created on 03.09.2004
+/**
+ * Title:   PerlOutputCreator
+ * Project: NASTY
+ *
+ * @author  Thomas Schurtz, unrza88
+ * @version %I% %G%
  */
 
 package de.japes.servlets.nasty;
 
-/**
- * @author unrza88
- */
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -16,126 +17,262 @@ import java.sql.SQLException;
 import java.util.GregorianCalendar;
 import java.util.Iterator;
 import java.util.LinkedList;
-
+import java.util.ArrayList;
 import javax.servlet.http.*;
 
+/**
+ * Queries given databases according to the parameters set by nasty's <code>index.jsp</code>
+ * and returns the results as a perl array.
+ */
 public class PerlOutputCreator extends OutputCreator {
 
+	/** MIME-content of results is <code>text/html</code> */
 	private static final String contentType = "text/plain";
-	private boolean tosMissing = false;
 	
-	public String createOutput(HttpServletRequest request, HttpServletResponse response, Statement s) {
+	/**
+         * Class constructor, just calls the constructor of super class.
+         *
+         * @param request   Holds the parameters selected by the user in <code>index.jsp</code>.
+         * @param response  Could be used to set response parameters or write output messages to.
+         * @param s         JDBC-<code>Statement</code>-object for local database (for storing
+         *                  temporary results).
+         * @param dbList    List of JDBC-<code>Statement</code>-objects for the databases that should
+         *                  be queried. (May include one for local database!)
+         * @see   Statement
+         * @see   OutputCreator
+         */
+	public PerlOutputCreator(HttpServletRequest request, HttpServletResponse response, Statement s, ArrayList dbList) {
+            super(request, response, s, dbList);
+        }
+
+        /**
+         * Queries the given databases and writes out the results formatted as perl array.
+         * 
+         * @return  String that holds eventual messages such as error messages.
+         */
+        public String createOutput() {
 		
-		String query = "";
 		String tmpOutput = "";
 		String limitString = "";
-		ResultSet result = null;
 		PrintWriter out = null;
 		int lastValue = 0;
 		
-		boolean showSrcIP = false, showDstIP = false, showSrcPort = false, showDstPort  = false;
-		boolean showProto = false, showTos = false, showPackets = false, showBytes = false;
-		boolean showFirstSwitched = false, showLastSwitched = false, showDuration = false;
-		boolean showExporter = false;
-		boolean furtherResults = true;
-		
-		output = "";
+                // time bounds of current flow
+		long firstSwitched, lastSwitched;
+                // name of the temporary tables (one with, one without double entries)
+                String tmpname = "";
+                String tmpname2 = "";
+                // the results of the query
+		ResultSet result = null;
+
+                boolean furtherResults = true;
 		
 		try {
 			 out = response.getWriter();
 		} catch (IOException e) {
 			return "Error creating Perl output.";
 		}
-		
-		out.println("# Start: " + new GregorianCalendar().getTime());
+
+                out.println("# Start: " + new GregorianCalendar().getTime());
 		out.println("# Output created by nasty");
 		
-		try {
-			
-			s.execute("DROP TABLE IF EXISTS perlTmp");
-			
-			s.execute("CREATE TEMPORARY TABLE perlTmp (srcIP INTEGER(10) UNSIGNED, dstIP INTEGER(10) UNSIGNED," +
-					"srcPort SMALLINT(5) UNSIGNED, dstPort SMALLINT(5) UNSIGNED, " +
-					"proto TINYINT UNSIGNED, dstTos TINYINT UNSIGNED, " +
-					"pkts BIGINT(20), bytes BIGINT(20) UNSIGNED, " +
-					"firstSwitched INTEGER(10) UNSIGNED, lastSwitched INTEGER(10)," +
-					"exporterID INTEGER(10) UNSIGNED)");
-			
-			query = createSQLQuery(request, s);
-			
-			if (query == "") {
-				output += "No valid Query could be produced\n";
-				return output;
-			}
-			
-			//result = s.executeQuery(query);
-			
-		} catch (SQLException e) {
-			
-			output += "Error using DB connection.\n";
-			output += e.getMessage();
-			return output;	
-		}
-		
-		String[] checkValues = request.getParameterValues("checks");
-		
-		int i = 0;
-		
-		while (checkValues != null && i < checkValues.length) {
+                if (!grpSrcIP) grpSrcIPDiv = 1;
+                if (!grpDstIP) grpDstIPDiv = 1;
+                if (!grpBytes) grpBytesDiv = 1;
 
-			if (checkValues[i].equalsIgnoreCase("showSrcIP"))
-				showSrcIP = true;
-			else if (checkValues[i].equalsIgnoreCase("showDstIP"))
-				showDstIP = true;
-			else if (checkValues[i].equalsIgnoreCase("showSrcPort"))
-				showSrcPort = true;
-			else if (checkValues[i].equalsIgnoreCase("showDstPort"))
-				showDstPort = true;
-			else if (checkValues[i].equalsIgnoreCase("showProto"))
-				showProto = true;
-			else if (checkValues[i].equalsIgnoreCase("showTos"))
-				showTos = true;
-			else if (checkValues[i].equalsIgnoreCase("showPackets"))
-				showPackets = true;
-			else if (checkValues[i].equalsIgnoreCase("showBytes"))
-				showBytes = true;
-			else if (checkValues[i].equalsIgnoreCase("showFirstSwitched"))
-				showFirstSwitched = true;
-			else if (checkValues[i].equalsIgnoreCase("showLastSwitched"))
-				showLastSwitched = true;
-			else if (checkValues[i].equalsIgnoreCase("showDuration"))
-				showDuration = true;
-			else if (checkValues[i].equalsIgnoreCase("showExporter"))
-				showExporter = true;
-			
-			i++;
-		}
+                // ************* build the SQL-query ***************
+                
+                // prepare filling the temporary table
+                tmpname = dq.getUniqueName("htmlTmp");
+                String createStr = "CREATE TEMPORARY TABLE "+tmpname+" (srcIP INTEGER(10) UNSIGNED, dstIP INTEGER(10) UNSIGNED," +
+				"srcPort SMALLINT(5) UNSIGNED, dstPort SMALLINT(5) UNSIGNED, " +
+				"proto TINYINT UNSIGNED, dstTos TINYINT UNSIGNED, " +
+				"pkts BIGINT(20), bytes BIGINT(20) UNSIGNED, " +
+				"firstSwitched INTEGER(10) UNSIGNED, lastSwitched INTEGER(10)," +
+				"exporterID INTEGER(10) UNSIGNED, exporterIP INTEGER(10) UNSIGNED," +
+                                "databaseID SMALLINT(5) UNSIGNED"+(!grpEverything?", grpcount INTEGER(10) UNSIGNED)":")");
+                String fillStr = "SELECT SQL_BIG_RESULT srcIP, dstIP, srcPort, dstPort, proto, dstTos, pkts, bytes, " +
+                                "firstSwitched, lastSwitched, exporterID, exporterIP, databaseID" + 
+                                (!grpEverything?", count(*) AS grpcount":"") + " FROM #srctable# " +
+                                "WHERE #params#";
+                // add grouping parameters
+                if (!grpEverything) {
+                    fillStr += " GROUP BY ";
+                    if (grpSrcIP) fillStr += "srcIP DIV "+grpSrcIPDiv+",";
+                    else fillStr = fillStr.replaceFirst("srcIP", "MIN(srcIP) AS srcIP");
+                    if (grpDstIP) fillStr += "dstIP DIV "+grpDstIPDiv+",";
+                    else fillStr = fillStr.replaceFirst("dstIP", "MIN(dstIP) AS dstIP");
+                    if (grpSrcPort) fillStr += "srcPort,";
+                    else fillStr = fillStr.replaceFirst("srcPort", "MIN(srcPort) AS srcPort");
+                    if (grpDstPort) fillStr += "dstPort,";
+                    else fillStr = fillStr.replaceFirst("dstPort", "MIN(dstPort) AS dstPort");
+                    if (grpProto) fillStr += "proto,";
+                    else fillStr = fillStr.replaceFirst("proto", "MIN(proto) AS proto");
+                    if (grpTos) fillStr += "dstTos,";
+                    else fillStr = fillStr.replaceFirst("dstTos", "MIN(dstTos) AS dstTos");
+                    if (grpPackets) fillStr += "pkts,";
+                    else fillStr = fillStr.replaceFirst("pkts", "SUM(pkts) AS pkts");
+                    if (grpBytes) fillStr += "bytes DIV "+grpBytesDiv+",";
+                    else fillStr = fillStr.replaceFirst("bytes", "SUM(bytes) AS bytes");
+                    if (grpTime) {
+                        fillStr += "firstSwitched DIV "+grpTimeDiv+",";
+                    }
+                    else {
+                        fillStr = fillStr.replaceFirst("firstSwitched", "MIN(firstSwitched) AS firstSwitched");
+                    }
+                    fillStr = fillStr.replaceFirst("lastSwitched", "MAX(lastSwitched) AS lastSwitched");
+                    if (grpDuration) fillStr += "lastSwitched-firstSwitched,";
+                    if (grpExporter) fillStr += "exporterID,";
+                    else fillStr = fillStr.replaceFirst("exporterID", "MIN(exporterID) AS exporterID");
+                    if (fillStr.endsWith(",")) fillStr = fillStr.substring(0, fillStr.length()-1);
+                    else if (fillStr.endsWith("GROUP BY "))  fillStr += "NULL";
+                }
+
+                // create and fill the temporary table
+                if (remDoubles) {
+                    if (dq.fillTable(tmpname, null, null, false, false, 1)==false) {
+                        output += dq.getOutput();
+                        return "Error creating and filling temporary table! <p>"+output;
+                    }
+                } else {
+                    if (dq.fillTable(tmpname, createStr, fillStr, remDoubles, remExporterID, remTimeDiv)==false) {
+                        output += dq.getOutput();
+                        return "Error creating and filling temporary table! <p>"+output;
+                    }
+                }
+       
+                if (remDoubles) {  
+                    // remove identical entries by grouping the temporary table into a new view
+                    tmpname2 = dq.getUniqueName("perlTmpNoDoubles");
+                    dq.removeIdenticalData(tmpname, tmpname2, remTimeDiv, remExporterID, true);
+                    
+                    // count amount of removed entries
+                    int x=0; int y=0;
+                    result = dq.queryTempDB("SELECT count(*) AS x FROM "+tmpname);
+                    try {
+                        result.next();
+                        x = result.getInt("x");
+                    } catch (Exception e) {
+                        // an error has occured
+                        dq.dropTable(tmpname2);
+                        dq.dropTable(tmpname);
+                        output += dq.getOutput();
+                        return "Error removing double entries from temporary table! <p>"+output;
+                    }
+                    result = dq.queryTempDB("SELECT count(*) AS y FROM "+tmpname2);
+                    try {
+                        result.next();
+                        y = result.getInt("y");
+                    } catch (Exception e) {
+                        // an error has occured
+                        dq.dropTable(tmpname2);
+                        dq.dropTable(tmpname);
+                        output += dq.getOutput();
+                        return "Error removing double entries from temporary table! <p>"+output;
+                    }
+                    if (x>0) output += "<b>Removed "+(x-y)+" of "+x+" entries as identical ("+(((x-y)*100)/x)+"%)!</b><p>";
+               } else {
+                    // no removal of identical entries, just copy the name of the temp. table
+                    tmpname2 = tmpname;
+                }
+                  
+                // prepare querying the temporary table
+                String queryTmp = "SELECT SQL_BIG_RESULT srcIP, dstIP, srcPort, dstPort, proto, dstTos, pkts, bytes, " +
+                                        "firstSwitched, lastSwitched, exporterID, exporterIP, databaseID FROM "+tmpname2;
+                // add grouping parameters
+                if (!grpEverything) {
+                    if (remDoubles) queryTmp = queryTmp.replaceFirst(" FROM", ",count(*) AS grpcount FROM");
+                    else queryTmp = queryTmp.replaceFirst(" FROM", ",SUM(grpcount) AS grpcount FROM");
+                    queryTmp += " GROUP BY ";
+                    if (grpSrcIP) queryTmp += "srcIP DIV "+grpSrcIPDiv+",";
+                    else queryTmp = queryTmp.replaceFirst("srcIP", "MIN(srcIP) AS srcIP");
+                    if (grpDstIP) queryTmp += "dstIP DIV "+grpDstIPDiv+",";
+                    else queryTmp = queryTmp.replaceFirst("dstIP", "MIN(dstIP) AS dstIP");
+                    if (grpSrcPort) queryTmp += "srcPort,";
+                    else queryTmp = queryTmp.replaceFirst("srcPort", "MIN(srcPort) AS srcPort");
+                    if (grpDstPort) queryTmp += "dstPort,";
+                    else queryTmp = queryTmp.replaceFirst("dstPort", "MIN(dstPort) AS dstPort");
+                    if (grpProto) queryTmp += "proto,";
+                    else queryTmp = queryTmp.replaceFirst("proto", "MIN(proto) AS proto");
+                    if (grpTos) queryTmp += "dstTos,";
+                    else queryTmp = queryTmp.replaceFirst("dstTos", "MIN(dstTos) AS dstTos");
+                    if (grpPackets) queryTmp += "pkts,";
+                    else queryTmp = queryTmp.replaceFirst("pkts", "SUM(pkts) AS pkts");
+                    if (grpBytes) queryTmp += "bytes DIV "+grpBytesDiv+",";
+                    else queryTmp = queryTmp.replaceFirst("bytes", "SUM(bytes) AS bytes");
+                    if (grpTime) {
+                        queryTmp = queryTmp.replaceFirst("firstSwitched", "(firstSwitched DIV "+grpTimeDiv+")*"+grpTimeDiv+" AS firstSwitched");
+                        queryTmp += "firstSwitched DIV "+grpTimeDiv+",";
+                        queryTmp = queryTmp.replaceFirst("lastSwitched", "(MAX(lastSwitched) DIV "+grpTimeDiv+")*"+grpTimeDiv+" AS lastSwitched");
+                    }
+                    else {
+                        queryTmp = queryTmp.replaceFirst("firstSwitched", "MIN(firstSwitched) AS firstSwitched");
+                        queryTmp = queryTmp.replaceFirst("lastSwitched", "MAX(lastSwitched) AS lastSwitched");
+                    }
+                    if (grpDuration) queryTmp += "((lastSwitched DIV "+grpTimeDiv+")-(firstSwitched DIV "+grpTimeDiv+")),";
+                    if (grpExporter) queryTmp += "exporterID,";
+                    else queryTmp = queryTmp.replaceFirst("exporterID", "MIN(exporterID) AS exporterID");
+                    if (grpDatabase) queryTmp += "databaseID,";
+                    else queryTmp = queryTmp.replaceFirst("databaseID", "MIN(databaseID) AS databaseID");
+                    if (grpAnything) queryTmp = queryTmp.substring(0, queryTmp.length()-1);
+                    else queryTmp += "NULL";
+                }
+         
+                // add ordering parameters
+                queryTmp = "SELECT SQL_BIG_RESULT * FROM (" + queryTmp + ") AS x ";
+		if (!order.equalsIgnoreCase("none")) {
+			if (order.equalsIgnoreCase("duration")) {
+                                queryTmp += " ORDER BY (lastSwitched-firstSwitched) ";
+			} else 
+				queryTmp += " ORDER BY " + order;
+			if (sort.equalsIgnoreCase("decrease"))
+				queryTmp += " DESC ";
+		} else if (!grpEverything) {
+                    queryTmp += " ORDER BY grpcount ";
+                    if (sort.equalsIgnoreCase("decrease"))
+                        queryTmp += " DESC ";
+                }
+		
+		// ************ construct Perl-table from the results of the query *********
 		
 		out.println("$nastyArray = (");
 		
 		try {
-			i=0;
+			int i=0;
 			
 			limitString = " LIMIT 0, 1000";
 			
-			result = s.executeQuery(query + limitString);
+			result = dq.queryTempDB(queryTmp + limitString);
+                        if (result==null) {
+                            dq.dropTable(tmpname2);
+                            dq.dropTable(tmpname);
+                            return "Database error." + dq.getOutput();
+                        }
 			
 			while (furtherResults) {
 				
 				while (result.next()) {
+        				// check time bounds of current flow
+                			firstSwitched=result.getLong("firstSwitched");
+                                        if (grpTime) firstSwitched=(firstSwitched/grpTimeDiv)*grpTimeDiv;
+                                	lastSwitched=result.getLong("lastSwitched");
+                                        if (grpTime) lastSwitched=((lastSwitched+grpTimeDiv)/grpTimeDiv)*grpTimeDiv;
 					
 					out.print("[");
-					tmpOutput = (showSrcIP?("\"" + createIPOutput(result.getLong("srcIP"), false) + "\", "):"") +
-					(showDstIP?("\"" + createIPOutput(result.getLong("dstIP"), false) + "\", "):"") +
-					(showSrcPort?("\"" + createPortOutput(result.getInt("srcPort"), false) + "\", "):"") +
-					(showDstPort?("\"" + createPortOutput(result.getInt("dstPort"), false) + "\", "):"") +
-					(showProto?("\"" + createProtoOutput(result.getShort("proto"), false) + "\", "):"") +
-					(showTos&&!tosMissing?("\"" + result.getShort("dstTos") + "\", "):"") +
+					tmpOutput = (showSrcIP?("\"" + dq.createIPOutput((result.getLong("srcIP")/grpSrcIPDiv)*grpSrcIPDiv, false) + "\", "):"") +
+					(showDstIP?("\"" + dq.createIPOutput((result.getLong("dstIP")/grpDstIPDiv)*grpDstIPDiv, false) + "\", "):"") +
+					(showSrcPort?("\"" + dq.createPortOutput(result.getInt("srcPort"), false) + "\", "):"") +
+					(showDstPort?("\"" + dq.createPortOutput(result.getInt("dstPort"), false) + "\", "):"") +
+					(showProto?("\"" + dq.createProtoOutput(result.getShort("proto"), false) + "\", "):"") +
+					(showTos&&!dq.isTosMissing()?("\"" + result.getShort("dstTos") + "\", "):"") +
 					(showPackets?("\"" + result.getLong("pkts") + "\", "):"") +
-					(showBytes?("\"" + result.getLong("bytes") + "\", "):"") +
-					(showFirstSwitched?("\"" + (result.getLong("firstSwitched")) + "\", "):"") +
-					(showLastSwitched?("\"" + (result.getLong("lastSwitched")) + "\", "):"") +
-					(showExporter?("\"" + result.getLong("exporterID") + "\""):"");
+					(showBytes?("\"" + ((result.getLong("bytes")/grpBytesDiv)*grpBytesDiv) + "\", "):"") +
+					(showFirstSwitched?("\"" + (firstSwitched) + "\", "):"") +
+					(showLastSwitched?("\"" + (lastSwitched) + "\", "):"") +
+					(showDuration?("\"" + (long)(lastSwitched-firstSwitched) + "\", "):"") +
+					(showExporter?("\"" + (result.getLong("exporterID")) + "\", "):"") +
+					(showDatabase?("\"" + getDBName(result.getInt("databaseID")) + "\", "):"") +
+					(!grpEverything?("\"" + result.getLong("grpcount") + "\""):"");
 					
 					if (tmpOutput.endsWith(", "))
 						tmpOutput = tmpOutput.substring(0, tmpOutput.length()-2);
@@ -148,12 +285,14 @@ public class PerlOutputCreator extends OutputCreator {
 				
 				if ((i%1000)==0) {
 					if (lastValue==i) {	//this is true if the number of results is exactly 1000, 2000, 3000...
-						furtherResults = false;
-						break;
-					}
-					lastValue = i;
-					limitString = " LIMIT " + i + ", 1000";
-					result = s.executeQuery(query + limitString);
+                                            furtherResults = false;
+					} else {
+                                            lastValue = i;
+                                            limitString = " LIMIT " + i + ", 1000";
+                                            result = dq.queryTempDB(queryTmp + limitString);
+                                            if (result==null) furtherResults = false;
+                                            else furtherResults = true;
+                                        }
 				} else
 					furtherResults = false;
 			}
@@ -170,337 +309,19 @@ public class PerlOutputCreator extends OutputCreator {
 		
 		out.close();
 		
-		return output;
+		// drop the temporary tables
+                dq.dropTable(tmpname2);
+                dq.dropTable(tmpname);
+                
+                // return with eventual messages such as error messages
+                return dq.getOutput();
 	}
-	
-	private String createSQLQuery(HttpServletRequest request, Statement s) {
 		
-		String statement = "";
-		String srcIPQuery = "";
-		String dstIPQuery = "";
-		String srcPortQuery = "";
-		String dstPortQuery = "";
-		String protoQuery = "";
-		String tosQuery = "";
-		String timeQuery = "";
-		boolean notFirst = false;
-		String order = "";
-		String selectedChart;
-		long[] timeBounds = new long[2];
-
-		boolean portsAggregated = false;
-		
-		timeQuery = createTimeQuery(request, timeBounds);
-		
-		LinkedList tables = getTables(s, timeBounds);
-			
-		Iterator it = tables.listIterator();
-		
-		while (it.hasNext()) {
-			
-			String currTable = (String)it.next();
-			
-			if (currTable.charAt(0) == 'w') {
-				tosMissing = true;
-				portsAggregated = true;
-			} else if (currTable.charAt(0) == 'd') {
-				tosMissing = true;
-			}
-		}
-		
-		srcIPQuery = createIPQuery(request.getParameter("srcIP"), "srcIP");
-		
-		dstIPQuery = createIPQuery(request.getParameter("dstIP"), "dstIP");
-		
-		srcPortQuery = createPortQuery(request.getParameter("srcPort"), "srcPort", portsAggregated);
-		
-		dstPortQuery = createPortQuery(request.getParameter("dstPort"), "dstPort", portsAggregated);
-		
-		protoQuery = createProtoQuery(request.getParameter("proto"), "proto");
-		
-		if (!tosMissing) {
-			tosQuery = createTosQuery(request.getParameter("tos"), "dstTos");
-		}
-		
-		it = tables.listIterator();
-		
-		while (it.hasNext()) {
-				
-			statement = "INSERT INTO perlTmp (";
-			//statement += "SELECT srcIP, dstIP, srcPort, dstPort, proto, dstTos, pkts, bytes, firstSwitched, lastSwitched FROM ";
-			if (tosMissing)
-				statement += "SELECT SQL_BIG_RESULT srcIP, dstIP, srcPort, dstPort, proto, 0, pkts, bytes, firstSwitched, lastSwitched, exporterID FROM ";
-			else
-				statement += "SELECT SQL_BIG_RESULT srcIP, dstIP, srcPort, dstPort, proto, dstTos, pkts, bytes, firstSwitched, lastSwitched, exporterID FROM ";
-			
-			statement += (String)it.next();
-			
-			if (srcIPQuery != "") {
-				statement += " WHERE " + srcIPQuery;
-				notFirst=true;
-			} 
-			if (dstIPQuery != "") {
-				if (notFirst)
-					statement += " AND ";
-				else 
-					statement += " WHERE ";
-				statement += dstIPQuery;
-				notFirst=true;
-			}
-			if (srcPortQuery != "") {
-				if (notFirst)
-					statement += " AND ";
-				else
-					statement += " WHERE ";
-				statement += srcPortQuery;
-				notFirst=true;
-			}
-			if (dstPortQuery != "") {
-				if (notFirst)
-					statement += " AND ";
-				else
-					statement += " WHERE ";
-				statement += dstPortQuery;
-				notFirst=true;
-			}
-			if (protoQuery != "") {
-				if (notFirst)
-					statement += " AND ";
-				else
-					statement += " WHERE ";
-				statement += protoQuery;
-				notFirst=true;
-			}
-			if (tosQuery != "") {
-				if (notFirst)
-					statement += " AND ";
-				else
-					statement += "WHERE ";
-				statement += tosQuery;
-				notFirst=true;
-			}
-			
-			if (timeQuery != "") {
-				if(notFirst)
-					statement += " AND ";
-				else
-					statement += " WHERE ";
-				statement += timeQuery;
-				notFirst=true;
-			}
-			
-			statement += ")";
-					
-			try {
-				s.execute(statement);
-			} catch (SQLException e) {
-				//output += "Couldn't insert data into temporary table.";
-				output += "#Error filling temporary table perlTmp: " + e.getMessage() + "\n";
-				
-			}
-			
-			notFirst=false;
-		}
-		
-		if (statement == "") {
-			output += "No data for given time range available.\n";
-			return "";
-		}
-		
-		if (tosMissing)
-			statement = "SELECT SQL_BIG_RESULT SQL_CACHE srcIP, dstIP, srcPort, dstPort, proto, pkts, bytes, firstSwitched, lastSwitched, exporterID FROM perlTmp ";
-		else
-			statement = "SELECT SQL_BIG_RESULT SQL_CACHE srcIP, dstIP, srcPort, dstPort, proto, dstTos, pkts, bytes, firstSwitched, lastSwitched, exporterID FROM perlTmp ";
-		
-		if (srcIPQuery != "") {
-			statement += " WHERE " + srcIPQuery;
-			notFirst=true;
-		} 
-		if (dstIPQuery != "") {
-			if (notFirst)
-				statement += " AND ";
-			else 
-				statement += " WHERE ";
-			statement += dstIPQuery;
-			notFirst=true;
-		}
-		if (srcPortQuery != "") {
-			if (notFirst)
-				statement += " AND ";
-			else
-				statement += " WHERE ";
-			statement += srcPortQuery;
-			notFirst=true;
-		}
-		if (dstPortQuery != "") {
-			if (notFirst)
-				statement += " AND ";
-			else
-				statement += " WHERE ";
-			statement += dstPortQuery;
-			notFirst=true;
-		}
-		if (protoQuery != "") {
-			if (notFirst)
-				statement += " AND ";
-			else
-				statement += " WHERE ";
-			statement += protoQuery;
-			notFirst=true;
-		}
-		if (tosQuery != "") {
-			if (notFirst)
-				statement += " AND ";
-			else
-				statement += "WHERE ";
-			statement += tosQuery;
-			notFirst=true;
-		}
-		
-		if (timeQuery != "") {
-			if(notFirst)
-				statement += " AND ";
-			else
-				statement += " WHERE ";
-			statement += timeQuery;
-			notFirst=true;
-		}
-		
-		order = request.getParameter("order");
-		
-		if (order != null && !order.equalsIgnoreCase("none")) {
-			if (order.equalsIgnoreCase("duration")) {
-				statement += " ORDER BY (lastSwitched-firstSwitched) ";
-			} else 
-				statement += " ORDER BY " + order;
-			
-			String sort = request.getParameter("sort");
-			
-			if (sort != null && sort.equalsIgnoreCase("decrease"))
-				statement += " DESC ";
-		}
-		
-		//statement += " LIMIT 1000";
-		
-		return statement;	
-	}
-	
-	/*private String createSQLQuery(HttpServletRequest request) {
-		
-		String statement = "";
-		String srcIPQuery = "";
-		String dstIPQuery = "";
-		String srcPortQuery = "";
-		String dstPortQuery = "";
-		String protoQuery = "";
-		String tosQuery = "";
-		String timeQuery = "";
-		boolean notFirst = false;
-		String order = "";
-		String selectedChart;
-		
-		srcIPQuery = createIPQuery(request.getParameter("srcIP"), "srcIP");
-		// comparing string with == works because "incorrect" is a constant string
-		if (srcIPQuery == "incorrect") {
-			srcIPQuery = "";
-			output += "# Entered Source IP was invalid and therefore omitted.\n";
-		}
-		
-		dstIPQuery = createIPQuery(request.getParameter("dstIP"), "dstIP");
-		if (dstIPQuery == "incorrect") {
-			dstIPQuery = "";
-			output += "# Entered Destination IP was invalid and therefore omitted.\n";
-		}
-		
-		srcPortQuery = createPortQuery(request.getParameter("srcPort"), "srcPort");
-		if (srcPortQuery == "incorrect") {
-			srcPortQuery = "";
-			output += "# Entered Source Port was invalid and therefore omitted.\n";
-		}
-		
-		dstPortQuery = createPortQuery(request.getParameter("dstPort"), "dstPort");
-		if (dstPortQuery == "incorrect") {
-			dstPortQuery = "";
-			output += "# Entered Destination Port was invalid and therefore omitted.\n";
-		}
-		
-		protoQuery = createProtoQuery(request.getParameter("proto"), "proto");
-		if (protoQuery == "incorrect") {
-			protoQuery = "";
-			output += "# Entered Protocol was invalid and therefore omitted.\n";
-		}
-		
-		tosQuery = createTosQuery(request.getParameter("tos"), "dstTos");
-		if (tosQuery == "incorrect") {
-			tosQuery = "";
-			output += "# Entered ToS was invalid and therefore omitted.\n";
-		}
-		
-		timeQuery = createTimeQuery(request);
-		if (timeQuery == "incorrect") {
-			timeQuery = "";
-			output += "# Entered time range was invalid and therefore omitted.\n";
-		}
-		
-		statement = "SELECT SQL_CACHE srcIP, dstIP, srcPort, dstPort, proto, dstTos, pkts, bytes, firstSwitched, lastSwitched FROM flow " +
-					"WHERE ";
-		
-		if (srcIPQuery != "") {
-			statement += srcIPQuery;
-			notFirst=true;
-		} 
-		if (dstIPQuery != "") {
-			if (notFirst)
-				statement += " AND ";
-			statement += dstIPQuery;
-			notFirst=true;
-		}
-		if (srcPortQuery != "") {
-			if (notFirst)
-				statement += " AND ";
-			statement += srcPortQuery;
-			notFirst=true;
-		}
-		if (dstPortQuery != "") {
-			if (notFirst)
-				statement += " AND ";
-			statement += dstPortQuery;
-			notFirst=true;
-		}
-		if (protoQuery != "") {
-			if (notFirst)
-				statement += " AND ";
-			statement += protoQuery;
-			notFirst=true;
-		}
-		if (tosQuery != "") {
-			if (notFirst)
-				statement += " AND ";
-			statement += tosQuery;
-			notFirst=true;
-		}
-		
-		if (timeQuery != "") {
-			if(notFirst)
-				statement += " AND ";
-			statement += timeQuery;
-			notFirst=true;
-		}
-		
-		order = request.getParameter("order");
-		
-		if (!order.equalsIgnoreCase("none")) {
-			if (order.equalsIgnoreCase("duration")) {
-				statement += " ORDER BY (lastSwitched-firstSwitched) ";
-			} else 
-				statement += " ORDER BY " + order;
-			if (request.getParameter("sort").equalsIgnoreCase("decrease"))
-				statement += " DESC ";
-		}
-		
-		return statement;	
-	}*/
-		
+	/**
+         * Returns the MIME-type of the output produced by this class.
+         *
+         * @return  String that holds the MIME-type of the output produced by this class.
+         */
 	public String getContentType() {
 		return contentType;
 	}

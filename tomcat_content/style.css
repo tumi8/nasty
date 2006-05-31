@@ -1,0 +1,107 @@
+body {
+	background-color: #eeeeee;
+}
+
+td, p, ul, ol {
+	color: black;
+	font-size: 10px;
+	font-family: Verdana, "Lucida Sans", Arial, Geneva, Helvetica, Helv, "Myriad Web", Syntax, sans-serif;
+	text-align: justify;
+}
+
+h1, h2, h3, h4, h5, h6, th
+{
+	font-family: "Trebuchet MS", Verdana, "Lucida Sans", Arial, Geneva, Helvetica, Helv, "Myriad Web", Syntax, sans-serif;
+}
+
+h1
+{
+	color: #454545;
+	font-size: 200%;
+	font-weight: bold;
+}
+
+h2
+{
+	color: #707070;
+	font-size: 130%;
+	font-weight: normal;
+	border: 1px solid #cccccc;
+	border-width: 0px 0px 1px 0px;
+	padding-bottom: 0px;
+}
+
+h3
+{
+	color: #707070;
+	font-size: 100%;
+	font-weight: bold;
+	border: 1px solid #cccccc;
+	border-width: 0px 0px 1px 0px;
+	padding-bottom: 0px;
+	text-align: center;
+}
+
+.right {
+	text-align: right;
+}
+
+.left {
+	text-align: left;
+}
+
+.center {
+	text-align: center;
+}
+
+.nav {
+	color: #000000;
+	font-weight: bold;
+	text-decoration: none;
+	font-size: 80%;
+	font-family: Verdana, "Lucida Sans", Arial, Geneva, Helvetica, Helv, "Myriad Web", Syntax, sans-serif;
+}
+
+.title {
+	color: #000000;
+	font-weight: bold;
+	text-decoration: none;
+	font-size: 80%;
+	font-family: Verdana, "Lucida Sans", Arial, Geneva, Helvetica, Helv, "Myriad Web", Syntax, sans-serif;
+}
+
+.small {
+	color: #000000;
+	font-size: 60%;
+	font-family: Verdana, "Lucida Sans", Arial, Geneva, Helvetica, Helv, "Myriad Web", Syntax, sans-serif;
+}
+
+.footer {
+	color: #555555;
+	font-size: 60%;
+	font-family: Verdana, "Lucida Sans", Arial, Geneva, Helvetica, Helv, "Myriad Web", Syntax, sans-serif;
+	text-align: center;
+}
+
+a {
+	color: black;
+	font-weight: bold;
+	text-decoration: none;
+}
+
+a:link {
+	text-decoration: none;
+}
+
+a:visited {
+	text-decoration: none;
+}
+
+a:active {
+	text-decoration: none;
+}
+
+a:hover {
+	color: #ff0033;
+	text-decoration: underline;
+}

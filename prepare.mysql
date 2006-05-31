@@ -1,7 +1,5 @@
 CREATE DATABASE nasty;
 
-USE nasty;
-
 GRANT SELECT,INSERT,UPDATE,CREATE,DROP,DELETE,LOCK TABLES ON nasty.* TO 'nastyWriter' IDENTIFIED BY 'write@ccess';
 
 CREATE TABLE exporter (id SMALLINT NOT NULL AUTO_INCREMENT, sourceID INTEGER UNSIGNED, srcIP INTEGER UNSIGNED, PRIMARY KEY (id));
@@ -21,10 +19,9 @@ CREATE TABLE config (detailedDays SMALLINT UNSIGNED, detailedWeeks SMALLINT UNSI
 	  	
 DELETE FROM mysql.user WHERE User='';	
 
-GRANT SELECT ON nasty.users TO 'tomcat'@'%' IDENTIFIED BY 'changeit';
+GRANT SELECT ON nasty.users TO 'tomcat' IDENTIFIED BY 'changeit';
 
-GRANT SELECT ON nasty.user_roles TO 'tomcat'@'%' IDENTIFIED BY 'changeit';
+GRANT SELECT ON nasty.user_roles TO 'tomcat' IDENTIFIED BY 'changeit';
 
-GRANT SELECT,CREATE TEMPORARY TABLES,INSERT,DROP ON nasty.* TO 'netadmin'@'%' IDENTIFIED BY 'nastyAdm1n';
+GRANT ALL PRIVILEGES ON nasty.* TO 'netadmin' IDENTIFIED BY 'nastyAdm1n';
 
-FLUSH PRIVILEGES;

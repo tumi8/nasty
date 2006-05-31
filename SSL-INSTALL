@@ -1,0 +1,95 @@
+Adding SSL capabilities to MySQL and JDBC:
+
+1. Get latest version of MySQL sources (e.g. from
+http://dev.mysql.com/downloads/mysql/4.1.html)
+
+2. Make sure OpenSSL-libraries and termcaps-libraries are installed on your system
+
+3. Execute the following commands to compile and install MySQL
+
+shell> groupadd mysql
+shell> useradd -g mysql mysql
+shell> gunzip < mysql-4.1.14.tar.gz | tar -xvf -
+shell> cd mysql-4.1.14
+shell> ./configure --prefix=/usr/local/mysql --with-vio --with-openssl 
+shell> make install
+shell> cp support-files/my-medium.cnf /etc/my.cnf
+shell> cd /usr/local/mysql
+shell> bin/mysql_install_db --user=mysql
+shell> chown -R root  .
+shell> chown -R mysql var
+shell> chgrp -R mysql .
+
+4. Create or copy SSL-certificates for client (client-cert.pem and client-key.pem) and server (server-cert.pem and server-key.pem). Also needed is certificate of CA that signed server certificate (cacert.pem). Sample certificates can be found in folder SSL of MySQL-sources.
+
+5. Change /etc/my.cnf to include certificate locations. For client programs add the following to the [client]-section (replace $DIR with location of certificates):
+
+ssl-ca=$DIR/cacert.pem
+ssl-cert=$DIR/client-cert.pem
+ssl-key=$DIR/client-key.pem
+
+In section [mysqld] add the following for the database server:
+
+ssl-ca=$DIR/cacert.pem
+ssl-cert=$DIR/server-cert.pem
+ssl-key=$DIR/server-key.pem
+
+6. Start the database server:
+
+shell> bin/mysqld_safe --user=mysql &
+
+7. Make sure to add "/usr/local/mysql/bin" into systems standard path.
+
+8. Lock root-account for database with password and delete anonymous account:
+
+shell> mysql -u root
+mysql> DELETE FROM mysql.user WHERE User = '';
+mysql> UPDATE mysql.user SET Password = PASSWORD('newpwd')
+    ->     WHERE User = 'root';
+mysql> FLUSH PRIVILEGES;
+mysql> exit;
+
+9. Install nasty database:
+
+shell> mysql -u root -p < prepare.mysql
+
+10. Add account for remote access:
+
+shell> mysql -u root -p
+mysql> GRANT SELECT,INSERT,CREATE,DROP,DELETE,LOCK TABLES ON nasty.* TO 'remoteuser'@'%'
+    ->    IDENTIFIED BY 'remotepassword' REQUIRE SSL;
+mysql> FLUSH PRIVILEGES;
+mysql> exit;
+
+11. Now add certificates to Java truststore and keystore for securing JDBC connections via SSL. First, add certificate of CA that signed database server certificate (cacert.pem) to truststore cacerts, located in $JAVA-HOME/lib/security:
+
+shell> keytool -import -alias mysqlServerCACert -file cacert.pem
+    ->      -keystore $JAVA-HOME/lib/security/cacerts
+
+Then add a client certificate to the keystore:
+
+shell> keytool -genkey -keyalg rsa -alias mysqlClientCertificate 
+
+Keytool will prompt you for the following information, you should respond with information that is appropriate for your situation (initial keystore password is "changeit"): 
+
+Enter keystore password:  *********
+What is your first and last name?
+  [Unknown]:  Matthews
+What is the name of your organizational unit?
+  [Unknown]:  Software Development
+What is the name of your organization?
+  [Unknown]:  MySQL AB
+What is the name of your City or Locality?
+  [Unknown]:  Flossmoor
+What is the name of your State or Province?
+  [Unknown]:  IL
+What is the two-letter country code for this unit?
+  [Unknown]:  US
+Is <CN=Matthews, OU=Software Development, O=MySQL AB,
+ L=Flossmoor, ST=IL, C=US> correct?
+  [no]:  y
+
+Enter key password for <mysqlClientCertificate>
+        (RETURN if same as keystore password):
+
+12. Now you can initialize secure JDBC connections by adding "useSSL=true" to the JDBC parameters.

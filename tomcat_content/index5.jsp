@@ -171,7 +171,7 @@
     </td>
    </tr>
    <!-- end top header -->
-
+ 
 		<!-- form -->
 		
             <form method="POST" action="/nasty/GetResults">
@@ -197,11 +197,11 @@
             <tr>
              <td bgcolor="#ffffff">
                     <br>
-                        <input type="button" name="status" value="Network Status Overview" disabled>
+                        <input type="submit" name="status" value="Network Status Overview">
                         <input type="submit" name="html" value="Table">
 		     	<input type="submit" name="perl" value="Perl Table">
 		     	<input type="submit" name="htmlexp" value="Table with Flow-Exporter-Distrib.">
-		     	<input type="submit" name="chart" value="Chart">
+		     	<input type="button" name="chart" value="Chart" disabled>
 
              </td>
             </tr>
@@ -231,15 +231,31 @@
         <table border="0" cellpadding="3" cellspacing="1" width="100%">
          <tr>
           <td bgcolor="#cccccc">
-           &nbsp;<big>Query to perform: <b>Network Status Overview</b></big>
+           &nbsp;<big>Query to perform: <b>Chart</b></big>
           </td>
          </tr>
          <tr>
           <td bgcolor="#ffffff">
 
-		     	<input type="hidden" name="outputFormat" value="status">
-		     	<input type="hidden" name="chartSelect" value="<c:out value='${param.chartSelect}' />">
+		     	<input type="hidden" name="outputFormat" value="chart">
+
+			<p><b>Select Chart Type:</b>
 			<p>
+                        <c:set var="charts" value="IP Protocol Distribution,Application Protocol Distribution (Source Ports),Application Protocol Distribution (Destination Ports),Traffic Over Time,Traffic Over Time (Source Ports),Traffic Over Time (Destination Ports),Traffic Over Time (Exporters),Packet Analysis,Size Analysis,Duration Analysis" />
+			<select name="chartSelect" size="1">
+				<c:forEach items="${charts}" var="current">
+					<c:choose>
+						<c:when test="${param.submitted && param.chartSelect==current}">
+							<option selected><c:out value="${current}" /></option>
+						</c:when>
+						<c:otherwise>
+							<option><c:out value="${current}" /></option>
+						</c:otherwise>
+					</c:choose>
+				</c:forEach>
+			</select>
+			</p>
+			<hr>
 			<b>Restrict Data:</b>
                         <p>
                         <table>
@@ -439,7 +455,6 @@
 		     	-Sec.-Blocks)
 		     	
 		     	<p>
-                        <hr>
 
                         <c:choose>
 				<c:when test="${(!param.submitted || grpSrcIP)}">
@@ -501,13 +516,9 @@
 					<input type="hidden" name="group" value="grpDatabase">
 				</c:when>
 			</c:choose>
-                        <b>Aggregate Data:</b>
-                        <p>
-                        SrcIP Netmask:
-		     	<input type="text" name="grpSrcIPDiv" size=2 value="<c:out value='${grpSrcIPDiv}' />" />
-		     	DstIP Netmask:
-		     	<input type="text" name="grpDstIPDiv" size=2 value="<c:out value='${grpDstIPDiv}' />" />
 
+		     	<input type="hidden" name="grpSrcIPDiv" value="<c:out value='${param.grpSrcIPDiv}' />">
+		     	<input type="hidden" name="grpDstIPDiv" value="<c:out value='${param.grpDstIPDiv}' />">
 		     	<input type="hidden" name="grpBytesDiv" value="<c:out value='${param.grpBytesDiv}' />">
 		     	<input type="hidden" name="grpTimeDiv" value="<c:out value='${param.grpTimeDiv}' />">
 			
@@ -527,8 +538,6 @@
                 		     	<input type="hidden" name="sort" value="<c:out value='${param.sort}' />">
 				</c:otherwise>
 			</c:choose>
-                        
-                        <p>
 		     	
 			<hr>
 			<b>Additional Options:</b>
@@ -627,12 +636,9 @@
 			</p>
 			<p>
 			<c:choose>
-				<c:when test="${(param.submitted && resolveIP)}">
-					<input type="checkbox" name="checks" value="resolveIP" checked>resolve IP addresses?
+				<c:when test="${resolveIP}">
+					<input type="hidden" name="checks" value="resolveIP">
 				</c:when>
-				<c:otherwise>
-					<input type="checkbox" name="checks" value="resolveIP">resolve IP addresses?
-				</c:otherwise>
 			</c:choose>
 			<c:choose>
 				<c:when test="${(param.submitted && ignoreHighPorts)}">

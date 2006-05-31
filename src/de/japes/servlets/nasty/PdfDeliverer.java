@@ -1,5 +1,9 @@
-/*
- * Created on 30.09.2004
+/**
+ * Title:   PdfDeliverer
+ * Project: NASTY
+ *
+ * @author  unrza88
+ * @version %I% %G%
  */
 
 package de.japes.servlets.nasty;
@@ -16,12 +20,26 @@ import org.jCharts.encoders.JPEGEncoder;
 import org.jCharts.properties.PropertyException;
 
 /**
- * @author unrza88
+ * Servlet that extracts a chart from the servlet context, encodes it into pdf
+ * and returns it.
+ * <p>
+ * The chart was created by <code>ChartOutputCreator</code> as an
+ * <code>org.jCharts.Chart</code>-object.
  */
 public class PdfDeliverer extends HttpServlet {
 	
-	PdfCreator pdfCreator = new PdfCreator();
+	/** Object that creates pdf content. */
+        PdfCreator pdfCreator = new PdfCreator();
 	
+	/**
+         * This method would be invoked by the servlet container when the servlet
+         * was called via HTTP-POST. Since HTTP-GET is normally used to retrieve the chart, this
+         * method is not really necessary, but it is standard practice to implement it.
+         * All it does is call <code>doGet</code>.
+         *
+         * @param request   Input parameters of the servlet.
+         * @param response  Output parameters of the servlet.
+         */
 	public void doPost(HttpServletRequest request,
 	   		   HttpServletResponse response)
 		throws ServletException, IOException {
@@ -30,20 +48,32 @@ public class PdfDeliverer extends HttpServlet {
 		
 	}
 	
+	/**
+         * This method is invoked by the servlet container when a chart should be
+         * retrieved. It looks into the servlet context, extracts the chart-object,
+         * encodes it into pdf and returns it.
+         *
+         * @param request   Input parameters of the servlet.
+         * @param response  Output parameters of the servlet, the jpeg-chart will be put there.
+         */
 	public void doGet(HttpServletRequest request,
 			   HttpServletResponse response) 
 		throws ServletException, IOException {
 		
+		// retrieve the chart-object from the servlet context
 		Chart generatedChart = (Chart)this.getServletContext().getAttribute("chart");
 		
 		if (generatedChart == null) {
+			// no chart was found in the context
 			response.setContentType("text/html");
 			PrintWriter writer = response.getWriter();
 			writer.println("<html><body><p>Generated Chart is null");
 			writer.println("</p></body></html>");
 			return;
 		}
-		ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+
+                // encode chart into jpeg first and write it into a stream
+                ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
 		
 		try {
 			JPEGEncoder.encode(generatedChart, 1.0f, byteStream);
@@ -61,9 +91,11 @@ public class PdfDeliverer extends HttpServlet {
 			writer.println("</p></body></html>");
 		}
 				
-		String filename = pdfCreator.exportToPdf(byteStream.toByteArray());
+		// convert stream to pdf
+                String filename = pdfCreator.exportToPdf(byteStream.toByteArray());
 		
-		OutputStream out = response.getOutputStream();
+		// write pdf-stream into servlet response
+                OutputStream out = response.getOutputStream();
 		
 		DataOutputStream dataOut = new DataOutputStream(out);
 		
@@ -81,7 +113,8 @@ public class PdfDeliverer extends HttpServlet {
 		out.close();
 		fileIn.close();
 		
-		new File(filename).delete();
+		// delete the stream
+                new File(filename).delete();
 	}
 
 }

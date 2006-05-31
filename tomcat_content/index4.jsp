@@ -171,7 +171,7 @@
     </td>
    </tr>
    <!-- end top header -->
-
+ 
 		<!-- form -->
 		
             <form method="POST" action="/nasty/GetResults">
@@ -197,10 +197,10 @@
             <tr>
              <td bgcolor="#ffffff">
                     <br>
-                        <input type="button" name="status" value="Network Status Overview" disabled>
+		     	<input type="submit" name="status" value="Network Status Overview">
                         <input type="submit" name="html" value="Table">
 		     	<input type="submit" name="perl" value="Perl Table">
-		     	<input type="submit" name="htmlexp" value="Table with Flow-Exporter-Distrib.">
+		     	<input type="button" name="htmlexp" value="Table with Flow-Exporter-Distrib." disabled>
 		     	<input type="submit" name="chart" value="Chart">
 
              </td>
@@ -211,17 +211,16 @@
         </table>
         <!-- end story -->
         <br />
-        
-
+    
        </td>
       </tr>
      </table>
     </td>
     <!-- end query type column -->
-   </tr>
+    </tr>
 
    
-   <tr>
+    <tr>
     <!-- top column -->
     <td valign="top" width="25%">
      <!-- sidebox -->
@@ -231,13 +230,14 @@
         <table border="0" cellpadding="3" cellspacing="1" width="100%">
          <tr>
           <td bgcolor="#cccccc">
-           &nbsp;<big>Query to perform: <b>Network Status Overview</b></big>
+           &nbsp;<big>Query to perform: <b>Table with Flow-Exporter-Distribution</b></big>
           </td>
          </tr>
          <tr>
           <td bgcolor="#ffffff">
 
-		     	<input type="hidden" name="outputFormat" value="status">
+
+		     	<input type="hidden" name="outputFormat" value="htmlexp">
 		     	<input type="hidden" name="chartSelect" value="<c:out value='${param.chartSelect}' />">
 			<p>
 			<b>Restrict Data:</b>
@@ -439,42 +439,66 @@
 		     	-Sec.-Blocks)
 		     	
 		     	<p>
-                        <hr>
 
+		     	<hr>
+		     	<b>Aggregate Data: </b>
+
+			<p>Group Data with same: <i>(Unchecked columns will be aggregated as appropriate.)</i><br>
                         <c:choose>
-				<c:when test="${(!param.submitted || grpSrcIP)}">
-					<input type="hidden" name="group" value="grpSrcIP">
+				<c:when test="${(param.submitted && !grpSrcIP)}">
+					<input type="checkbox" name="group" value="grpSrcIP">SrcIP
 				</c:when>
+				<c:otherwise>
+					<input type="checkbox" name="group" value="grpSrcIP" checked>SrcIP
+				</c:otherwise>
 			</c:choose>
 			<c:choose>
-				<c:when test="${(!param.submitted || grpDstIP)}">
-					<input type="hidden" name="group" value="grpDstIP">
+				<c:when test="${(param.submitted && !grpDstIP)}">
+					<input type="checkbox" name="group" value="grpDstIP">DstIP
 				</c:when>
+				<c:otherwise>
+					<input type="checkbox" name="group" value="grpDstIP" checked>DstIP
+				</c:otherwise>
 			</c:choose>
 			<c:choose>
-				<c:when test="${(!param.submitted || grpSrcPort)}">
-					<input type="hidden" name="group" value="grpSrcPort">
+				<c:when test="${(param.submitted && !grpSrcPort)}">
+					<input type="checkbox" name="group" value="grpSrcPort">SrcPort
 				</c:when>
+				<c:otherwise>
+					<input type="checkbox" name="group" value="grpSrcPort" checked>SrcPort
+				</c:otherwise>
 			</c:choose>
 			<c:choose>
-				<c:when test="${(!param.submitted || grpDstPort)}">
-					<input type="hidden" name="group" value="grpDstPort">
+				<c:when test="${(param.submitted && !grpDstPort)}">
+					<input type="checkbox" name="group" value="grpDstPort">DstPort
 				</c:when>
+				<c:otherwise>
+					<input type="checkbox" name="group" value="grpDstPort" checked>DstPort
+				</c:otherwise>
 			</c:choose>
 			<c:choose>
-				<c:when test="${(!param.submitted || grpProto)}">
-					<input type="hidden" name="group" value="grpProto">
+				<c:when test="${(param.submitted && !grpProto)}">
+					<input type="checkbox" name="group" value="grpProto">Protocol
 				</c:when>
+				<c:otherwise>
+					<input type="checkbox" name="group" value="grpProto" checked>Protocol
+				</c:otherwise>
 			</c:choose>
 			<c:choose>
-				<c:when test="${(!param.submitted || grpTos)}">
-					<input type="hidden" name="group" value="grpTos">
+				<c:when test="${(param.submitted && !grpTos)}">
+					<input type="checkbox" name="group" value="grpTos">ToS
 				</c:when>
+				<c:otherwise>
+					<input type="checkbox" name="group" value="grpTos" checked>ToS
+				</c:otherwise>
 			</c:choose>
 			<c:choose>
-				<c:when test="${(!param.submitted || grpTime)}">
-					<input type="hidden" name="group" value="grpTime">
+				<c:when test="${(param.submitted && !grpTime)}">
+					<input type="checkbox" name="group" value="grpTime">Time Stamps
 				</c:when>
+				<c:otherwise>
+					<input type="checkbox" name="group" value="grpTime" checked>Time Stamps
+				</c:otherwise>
 			</c:choose>
 			<c:choose>
 				<c:when test="${(!param.submitted || grpPackets)}">
@@ -501,67 +525,146 @@
 					<input type="hidden" name="group" value="grpDatabase">
 				</c:when>
 			</c:choose>
-                        <b>Aggregate Data:</b>
                         <p>
+                        Special Aggregation-Parameters for Grouping:
+                        <br>
                         SrcIP Netmask:
 		     	<input type="text" name="grpSrcIPDiv" size=2 value="<c:out value='${grpSrcIPDiv}' />" />
 		     	DstIP Netmask:
 		     	<input type="text" name="grpDstIPDiv" size=2 value="<c:out value='${grpDstIPDiv}' />" />
-
 		     	<input type="hidden" name="grpBytesDiv" value="<c:out value='${param.grpBytesDiv}' />">
-		     	<input type="hidden" name="grpTimeDiv" value="<c:out value='${param.grpTimeDiv}' />">
+		     	Time Stamps within 
+		     	<input type="text" name="grpTimeDiv" size=5 value="<c:out value='${grpTimeDiv}' />" />
+		     	Sec.-Blocks
 			
-			<c:choose>
-				<c:when test="${param.order==null}">
-					<input type="hidden" name="order" value="none">
-				</c:when>
-				<c:otherwise>
-                		     	<input type="hidden" name="order" value="<c:out value='${param.order}' />">
-				</c:otherwise>
-			</c:choose>
-			<c:choose>
-				<c:when test="${param.sort==null}">
-					<input type="hidden" name="sort" value="increase">
-				</c:when>
-				<c:otherwise>
-                		     	<input type="hidden" name="sort" value="<c:out value='${param.sort}' />">
-				</c:otherwise>
-			</c:choose>
-                        
-                        <p>
-		     	
-			<hr>
+			<p><hr>
 			<b>Additional Options:</b>
-
+		     	<p>Order Tables by:<br>
+		     	<c:choose>
+		     		<c:when test="${(param.submitted && param.order=='none') || !param.submitted || param.order=='pkts' || param.order=='bytes' || param.order=='duration'}">
+		     			<input type="radio" name="order" value="none" checked>None/#Grouped
+		     		</c:when>
+		     		<c:otherwise>
+		     			<input type="radio" name="order" value="none">None/#Grouped
+		     		</c:otherwise>
+		     	</c:choose>
+		     	<c:choose>
+		     		<c:when test="${param.submitted && param.order=='srcIP'}">	
+		     			<input type="radio" name="order" value="srcIP" checked>SrcIP
+		     		</c:when>
+		     		<c:otherwise>
+		     			<input type="radio" name="order" value="srcIP">SrcIP
+		     		</c:otherwise>
+		     	</c:choose>
+		     	<c:choose>
+		     		<c:when test="${param.submitted && param.order=='dstIP'}">
+		     			<input type="radio" name="order" value="dstIP" checked>DstIP
+		     		</c:when>
+		     		<c:otherwise>
+		     			<input type="radio" name="order" value="dstIP">DstIP
+		     		</c:otherwise>
+		     	</c:choose>
+		     	<c:choose>
+		     		<c:when test="${param.submitted && param.order=='srcPort'}">
+		     	       		<input type="radio" name="order" value="srcPort" checked>SrcPort
+		     		</c:when>
+		     		<c:otherwise>
+		     			<input type="radio" name="order" value="srcPort">SrcPort
+		     		</c:otherwise>
+		     	</c:choose>
+		     	<c:choose>
+		     		<c:when test="${param.submitted && param.order=='dstPort'}">
+		     			<input type="radio" name="order" value="dstPort" checked>DstPort
+		     		</c:when>
+		     		<c:otherwise>
+		     			<input type="radio" name="order" value="dstPort">DstPort
+		     		</c:otherwise>
+		     	</c:choose>
+		     	<c:choose>
+		     		<c:when test="${param.submitted && param.order=='proto'}">
+		     			<input type="radio" name="order" value="proto" checked>Protocol
+		     		</c:when>
+		     		<c:otherwise>
+		     			<input type="radio" name="order" value="proto">Protocol
+		     		</c:otherwise>
+		     	</c:choose>
+		     	<c:choose>
+		     		<c:when test="${param.submitted && param.order=='firstSwitched'}">
+		     	       		<input type="radio" name="order" value="firstSwitched" checked>FirstSwitched
+		     		</c:when>
+		     		<c:otherwise>
+		     			<input type="radio" name="order" value="firstSwitched">FirstSwitched
+		     		</c:otherwise>
+		     	</c:choose>
+		     	<c:choose>
+		     		<c:when test="${param.submitted && param.order=='lastSwitched'}">
+		     	       		<input type="radio" name="order" value="lastSwitched" checked>LastSwitched
+		     		</c:when>
+		     		<c:otherwise>
+		     			<input type="radio" name="order" value="lastSwitched">LastSwitched
+		     		</c:otherwise>
+		     	</c:choose>
+		     	<p>
+		     	<p>Sort Order:<br>
+		     	<c:choose>
+		     		<c:when test="${(param.submitted && param.sort=='increase') || !param.submitted}"> 
+		     			<input type="radio" name="sort" value="increase" checked>increasing
+		     			<input type="radio" name="sort" value="decrease">decreasing
+		     		</c:when>
+		     		<c:otherwise>
+		     			<input type="radio" name="sort" value="increase">increasing
+		     			<input type="radio" name="sort" value="decrease" checked>decreasing
+		     		</c:otherwise>
+		     	</c:choose>
+		     	
+			<p>Output Columns:<br>
 			<c:choose>
-				<c:when test="${(!param.submitted || showSrcIP)}">
-					<input type="hidden" name="checks" value="showSrcIP">
+				<c:when test="${(param.submitted && !showSrcIP)}">
+					<input type="checkbox" name="checks" value="showSrcIP">SrcIP
 				</c:when>
+				<c:otherwise>
+					<input type="checkbox" name="checks" value="showSrcIP" checked>SrcIP
+				</c:otherwise>
 			</c:choose>
 			<c:choose>
-				<c:when test="${(!param.submitted || showDstIP)}">
-					<input type="hidden" name="checks" value="showDstIP">
+				<c:when test="${(param.submitted && !showDstIP)}">
+					<input type="checkbox" name="checks" value="showDstIP">DstIP
 				</c:when>
+				<c:otherwise>
+					<input type="checkbox" name="checks" value="showDstIP" checked>DstIP
+				</c:otherwise>
 			</c:choose>
 			<c:choose>
-				<c:when test="${(!param.submitted || showSrcPort)}">
-					<input type="hidden" name="checks" value="showSrcPort">
+				<c:when test="${(param.submitted && !showSrcPort)}">
+					<input type="checkbox" name="checks" value="showSrcPort">SrcPort
 				</c:when>
+				<c:otherwise>
+					<input type="checkbox" name="checks" value="showSrcPort" checked>SrcPort
+				</c:otherwise>
 			</c:choose>
 			<c:choose>
-				<c:when test="${(!param.submitted || showDstPort)}">
-					<input type="hidden" name="checks" value="showDstPort">
+				<c:when test="${(param.submitted && !showDstPort)}">
+					<input type="checkbox" name="checks" value="showDstPort">DstPort
 				</c:when>
+				<c:otherwise>
+					<input type="checkbox" name="checks" value="showDstPort" checked>DstPort
+				</c:otherwise>
 			</c:choose>
 			<c:choose>
-				<c:when test="${(!param.submitted || showProto)}">
-					<input type="hidden" name="checks" value="showProto">
+				<c:when test="${(param.submitted && !showProto)}">
+					<input type="checkbox" name="checks" value="showProto">Protocol
 				</c:when>
+				<c:otherwise>
+					<input type="checkbox" name="checks" value="showProto" checked>Protocol
+				</c:otherwise>
 			</c:choose>
 			<c:choose>
-				<c:when test="${(!param.submitted || showTos)}">
-					<input type="hidden" name="checks" value="showTos">
+				<c:when test="${(param.submitted && !showTos)}">
+					<input type="checkbox" name="checks" value="showTos">ToS
 				</c:when>
+				<c:otherwise>
+					<input type="checkbox" name="checks" value="showTos" checked>ToS
+				</c:otherwise>
 			</c:choose>
 			<c:choose>
 				<c:when test="${(!param.submitted || showPackets)}">
@@ -574,14 +677,20 @@
 				</c:when>
 			</c:choose>
 			<c:choose>
-				<c:when test="${(!param.submitted || showFirstSwitched)}">
-					<input type="hidden" name="checks" value="showFirstSwitched">
+				<c:when test="${(param.submitted && !showFirstSwitched)}">
+					<input type="checkbox" name="checks" value="showFirstSwitched">FirstSwitched
 				</c:when>
+				<c:otherwise>
+					<input type="checkbox" name="checks" value="showFirstSwitched" checked>FirstSwitched
+				</c:otherwise>
 			</c:choose>
 			<c:choose>
-				<c:when test="${(!param.submitted || showLastSwitched)}">
-					<input type="hidden" name="checks" value="showLastSwitched">
+				<c:when test="${(param.submitted && !showLastSwitched)}">
+					<input type="checkbox" name="checks" value="showLastSwitched">LastSwitched
 				</c:when>
+				<c:otherwise>
+					<input type="checkbox" name="checks" value="showLastSwitched" checked>LastSwitched
+				</c:otherwise>
 			</c:choose>
 			<c:choose>
 				<c:when test="${(!param.submitted || showDuration)}">
@@ -635,12 +744,9 @@
 				</c:otherwise>
 			</c:choose>
 			<c:choose>
-				<c:when test="${(param.submitted && ignoreHighPorts)}">
-					<input type="checkbox" name="checks" value="ignoreHighPorts" checked>ignore Ports &gt; 1023 in Src and Dst Port charts?
+				<c:when test="${ignoreHighPorts}">
+					<input type="hidden" name="checks" value="ignoreHighPorts">
 				</c:when>
-				<c:otherwise>
-					<input type="checkbox" name="checks" value="ignoreHighPorts">ignore Ports &gt; 1023 in Src and Dst Port charts?
-				</c:otherwise>
 			</c:choose>
                         <p>Method for Distributed Query:<br>
                 	<c:choose>
@@ -665,7 +771,7 @@
 
 		     	<input type="hidden" name="offset" value="0">
 		     	<input type="hidden" name="outputLength" value="50">
-				
+
 			<table><tr><td>	
 		     	<input type="submit" name="search" value="Execute Query">
 		     	

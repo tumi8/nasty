@@ -1,43 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <Context path="/nasty" docBase="${catalina.home}/webapps/nasty">
+  <Realm className="org.apache.catalina.realm.JDBCRealm" debug="99" driverName="org.gjt.mm.mysql.Driver" connectionURL="jdbc:mysql://localhost/nasty?user=tomcat&amp;password=changeit" userTable="users" userNameCol="user_name" userCredCol="user_pass" userRoleTable="user_roles" roleNameCol="role_name"/>
+  <Valve className="org.apache.catalina.valves.AccessLogValve" prefix="localhost_access_log." suffix=".txt" pattern="common"/>
 
-    <Realm className="org.apache.catalina.realm.JDBCRealm" debug="99"
-           driverName="org.gjt.mm.mysql.Driver"
-	   connectionURL="jdbc:mysql://localhost/nasty?user=tomcat&amp;password=changeit"
-	   userTable="users" userNameCol="user_name" userCredCol="user_pass"
-	   userRoleTable="user_roles" roleNameCol="role_name"/>
+  <Resource name="jdbc/LocalDB" auth="Container" type="javax.sql.DataSource" maxActive="100" maxIdle="30" maxWait="10000" username="netadmin" password="nastyAdm1n" driverClassName="com.mysql.jdbc.Driver" url="jdbc:mysql://localhost:3306/nasty?autoReconnect=true"/>
 
-     <Valve className="org.apache.catalina.valves.AccessLogValve"
-	    prefix="localhost_access_log." suffix=".txt"
-	    pattern="common"/>
+  <!-- Pass all parameters again with ResourceParams since some Tomcat versions do not support Resource attributes -->
+  <ResourceParams name="jdbc/LocalDB">
+  <parameter>
+  <name>auth</name>
+  <value>Container</value>
+  </parameter>
+  <parameter>
+  <name>type</name>
+  <value>javax.sql.DataSource</value>
+  </parameter>
+  <parameter>
+  <name>maxActive</name>
+  <value>100</value>
+  </parameter>
+  <parameter>
+  <name>maxIdle</name>
+  <value>30</value>
+  </parameter>
+  <parameter>
+  <name>maxWait</name>
+  <value>10000</value>
+  </parameter>
+  <parameter>
+  <name>username</name>
+  <value>netadmin</value>
+  </parameter>
+  <parameter>
+  <name>password</name>
+  <value>nastyAdm1n</value>
+  </parameter>
+  <parameter>
+  <name>driverClassName</name>
+  <value>com.mysql.jdbc.Driver</value>
+  </parameter>
+  <parameter>
+  <name>url</name>
+  <value>jdbc:mysql://localhost:3306/nasty?autoReconnect=true</value>
+  </parameter>
+  </ResourceParams>
+  
+  <Parameter name="dbHostLocal" value="localhost"/>
+  <Parameter name="dbUserLocal" value="netadmin"/>
+  <Parameter name="dbPasswordLocal" value="nastyAdm1n"/>
+  <Parameter name="dbNameLocal" value="nasty"/>
+  
+  <Resource name="jdbc/QueryDB1" auth="Container" type="javax.sql.DataSource" maxActive="100" maxIdle="30" maxWait="10000" username="netadmin" password="nastyAdm1n" driverClassName="com.mysql.jdbc.Driver" url="jdbc:mysql://localhost:3306/nasty?autoReconnect=true"/>
 
-     <Resource name="jdbc/FlowDB" auth="Container"
-	       type="javax.sql.DataSource"/>
+  <!-- Pass all parameters again with ResourceParams since some Tomcat versions do not support Resource attributes -->
+  <ResourceParams name="jdbc/QueryDB1">
+  <parameter>
+  <name>auth</name>
+  <value>Container</value>
+  </parameter>
+  <parameter>
+  <name>type</name>
+  <value>javax.sql.DataSource</value>
+  </parameter>
+  <parameter>
+  <name>maxActive</name>
+  <value>100</value>
+  </parameter>
+  <parameter>
+  <name>maxIdle</name>
+  <value>30</value>
+  </parameter>
+  <parameter>
+  <name>maxWait</name>
+  <value>10000</value>
+  </parameter>
+  <parameter>
+  <name>username</name>
+  <value>netadmin</value>
+  </parameter>
+  <parameter>
+  <name>password</name>
+  <value>nastyAdm1n</value>
+  </parameter>
+  <parameter>
+  <name>driverClassName</name>
+  <value>com.mysql.jdbc.Driver</value>
+  </parameter>
+  <parameter>
+  <name>url</name>
+  <value>jdbc:mysql://localhost:3306/nasty?autoReconnect=true</value>
+  </parameter>
+  </ResourceParams>
 
-     <ResourceParams name="jdbc/FlowDB">
-	     <parameter>
-		     <name>username</name>
-		     <value>netadmin</value>
-	     </parameter>
-	     <parameter>
-		     <name>password</name>
-		     <value>nastyAdm1n</value>
-	     </parameter>
-	     <parameter>
-		     <name>driverClassName</name>
-		     <value>com.mysql.jdbc.Driver</value>
-	     </parameter>
-	     <parameter>
-		     <name>url</name>
-		     <value>jdbc:mysql://localhost/nasty</value>
-	     </parameter>
-	     <parameter>
-		     <name>maxActive</name>
-		     <value>10</value>
-	     </parameter>
-	     <parameter>
-		     <name>maxIdle</name>
-		     <value>4</value>
-	     </parameter>
-     </ResourceParams>
-
+  <Parameter name="dbDescription1" value="local"/>
+  <Parameter name="dbHost1" value="localhost"/>
+  <Parameter name="dbUser1" value="netadmin"/>
+  <Parameter name="dbPassword1" value="nastyAdm1n"/>
+  <Parameter name="dbName1" value="nasty"/>
+  
+ <!-- Example for configuring remote collector databases to be queried:
+ 
+  <Resource name="jdbc/QueryDB2" auth="Container" type="javax.sql.DataSource" maxActive="100" maxIdle="30" maxWait="10000" username="REMOTEUSER" password="REMOTEPASSWORD" driverClassName="com.mysql.jdbc.Driver" url="jdbc:mysql://REMOTEHOST:3306/nasty?autoReconnect=true&amp;useCompression=true&amp;useSSL=true"/>
+  <Parameter name="dbDescription2" value="REMOTECOLLECTOR"/>
+  <Parameter name="dbHost2" value="REMOTEHOST"/>
+  <Parameter name="dbUser2" value="REMOTEUSER"/>
+  <Parameter name="dbPassword2" value="REMOTEPASSWORD"/>
+  <Parameter name="dbName2" value="nasty"/>
+ -->
+	
+  <!-- Provide number of collector-databases that can be queried: -->
+  <Parameter name="dbNum" value="1"/>
 </Context>

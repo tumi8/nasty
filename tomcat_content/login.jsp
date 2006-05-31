@@ -1,46 +1,77 @@
 <%@ page contentType="text/html" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jstl/core" %>
 
-<html>
 
+ <html>
+ <head>
+  <title>
+   Nasty - Network Analysis And Statistics Yielding
+  </title>
   <style type="text/css">
-  <!--
+    <!--
+    body {
+            background-color: #eeeeee;
+    }
 
-  	body {
-	        font-family: Arial;
-	        font-weight: bold;
-	        background-color: #FFFFCC;
-	        color: #006600;
-	}
-
-	table {
-	        font-weight: bold;
-	}
-
-	input {
-	        color: #006600;
-	}
-
-	select {
-	        color: #006600;
-	}
-
-	a:link { color:green; }
-	a:visited { color:orange; }
-	a:hover { color:orange; }
-	a:active { color:red; }
-  -->
+    td, p, ul, ol {
+            color: black;
+            font-size: 10px;
+            font-family: Verdana, "Lucida Sans", Arial, Geneva, Helvetica, Helv, "Myriad Web", Syntax, sans-serif;
+            text-align: justify;
+    }
+    h1
+{
+	font-family: "Trebuchet MS", Verdana, "Lucida Sans", Arial, Geneva, Helvetica, Helv, "Myriad Web", Syntax, sans-serif;
+        color: #454545;
+	font-size: 200%;
+	font-weight: bold;
+}
+    -->
   </style>
+ </head>
 
-  <head>
-    <title>nasty - Network Analysis And Statistics Yielding</title>
-  </head>
+ <body>
 
-  <body>
-
-    <h1>nasty</h1>
-
-    	<p>You have to login to access the requested page! <br><br>
+  <!-- body table -->
+  <table align="center" valign="top" border="0" cellpadding="2" cellspacing="0" width="950">
+   <!-- top header -->
+   <tr>
+    <td valign="center" width="25%">
+     <!-- title table -->
+     <table align="center" bgcolor="#000000" border="0" cellpadding="1" cellspacing="0" width="100%">
+      <tr>
+       <td valign="center">
+        <table bgcolor="#ffffff" border="0" cellpadding="8" cellspacing="0" width="100%">
+         <tr>
+          <td valign="center">
+           <h1>&nbsp;Nasty - Network Analysis And Statistics Yielding</h1>
+          </td>
+         </tr>
+        </table>
+       </td>
+      </tr>
+     </table>
+     <!-- end title table -->
+    </td>
+   </tr>
+   <!-- end top header -->
+ 
+   <tr>
+    <!-- top column -->
+    <td valign="top" width="25%">
+     <!-- sidebox -->
+     <table bgcolor="#000000" border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr>
+       <td>
+        <table border="0" cellpadding="3" cellspacing="1" width="100%">
+         <tr>
+          <td bgcolor="#cccccc">
+           &nbsp;<b>Login</b>
+          </td>
+         </tr>
+         <tr>
+          <td bgcolor="#ffffff">
+          <p>You first have to login to access the requested page! <br><br>
   	
 		<form method="POST" action='<%= response.encodeURL("j_security_check") %>'>
 	    		<table>
@@ -55,5 +86,21 @@
 
 	</p>
 
-  </body>
+		
+          </td>
+         </tr>
+        </table>
+       </td>
+      </tr>
+     </table>
+     <!-- end sidebox -->
+
+    </td>
+    <!-- end top column -->
+	</tr>
+
+  </table>
+  <!-- end body table -->
+ </body>
+</html>
 </html>

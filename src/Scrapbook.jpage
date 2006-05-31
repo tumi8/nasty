@@ -1,9 +1,0 @@
-java.util.Calendar cal = new java.util.GregorianCalendar();
-
-cal.set(2004,2,1,9,25);
-
-System.out.println(cal.getTime());
-
-cal.add(Calendar.HOUR, -23);
-
-System.out.println(cal.getTime());
