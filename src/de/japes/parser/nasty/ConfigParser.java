@@ -107,6 +107,9 @@ public class ConfigParser implements ConfigParserConstants {
 
         public static short getDaysDetailedData() {
 
+                //negative number means infinity => aggregation disabled
+                if (daysDetailedData<=0)
+                        return 0;
                 //detailed data for at least 24h
                 if (daysDetailedData<1)
                         return 1;

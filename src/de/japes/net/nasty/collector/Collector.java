@@ -129,21 +129,28 @@ public class Collector {
 		
 		new PacketReaderThread().start();
 		
-		Calendar aggregationTime = new GregorianCalendar();
-		
-		aggregationTime.add(Calendar.DATE, 1);
-		aggregationTime.set(Calendar.HOUR, 5);
-		aggregationTime.set(Calendar.MINUTE, 0);
-		aggregationTime.set(Calendar.SECOND, 0);
-		aggregationTime.set(Calendar.AM_PM, Calendar.AM);
-		
-		System.out.println("Aggregation Time: " + aggregationTime.getTime());
-		aggTimer = new Timer();
-		aggTask = new AggregationTask();
-		
-		aggTimer.scheduleAtFixedRate(aggTask, aggregationTime.getTime(), 86400000l); //every 24h
-		
-		System.out.println("Scheduled Time: " + new Date(aggTask.scheduledExecutionTime()));
+		if (ConfigParser.getDaysDetailedData() > 0)
+		{
+			Calendar aggregationTime = new GregorianCalendar();
+
+			aggregationTime.add(Calendar.DATE, 1);
+			aggregationTime.set(Calendar.HOUR, 5);
+			aggregationTime.set(Calendar.MINUTE, 0);
+			aggregationTime.set(Calendar.SECOND, 0);
+			aggregationTime.set(Calendar.AM_PM, Calendar.AM);
+
+			System.out.println("Aggregation Time: " + aggregationTime.getTime());
+			aggTimer = new Timer();
+			aggTask = new AggregationTask();
+
+			aggTimer.scheduleAtFixedRate(aggTask, aggregationTime.getTime(), 86400000l); //every 24h
+
+			System.out.println("Scheduled Time: " + new Date(aggTask.scheduledExecutionTime()));
+		}
+		else
+			System.out.println("Aggregation disabled.");
+
+
 		
 		while (true) {
 			
