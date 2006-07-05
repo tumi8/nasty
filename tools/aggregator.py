@@ -236,7 +236,7 @@ if ok:
         if startday:
             beginn=int(time.mktime([int(startday[0:4]), int(startday[4:6]), int(startday[6:8]),0,0,0,0,0,0]))
         if endday:
-            ende=int(time.mktime([int(endday[0:4]), int(endday[4:6]), int(endday[6:8]),23,59,59,0,0,0]))
+            ende=int(time.mktime([int(endday[0:4]), int(endday[4:6]), int(endday[6:8]),0,0,0,0,0,0]))
         for i in range (beginn+86400,ende+86400,86400):
             erzeugeTagestabelle (str(time.gmtime(i)[0]) + str(time.gmtime(i)[1]).rjust(2).replace(' ','0') + str(time.gmtime(i)[2]).rjust(2).replace(' ','0'))
            
