@@ -12,26 +12,31 @@
 #erneute Aggregation der Daten statt.
 #
 
+# Bemerkung:
+# Nasty-Collector legt Tabellennamen im Sinne der lokalen Zeit an, ggf. auch in Sommerzeit.
+# Dadurch wird die Umwandlung Zeitstempel<=>Tabellenname erschwert => sollte in zukuenftigen Versionen nicht mehr sein.
+# Im Moment ist das im Programm fuer Halbstundentabellen beruecksichtigt.
+
 import sys,time, MySQLdb
 
 def insert (src_start_str, src_end_str, dst_start_str, typ):
 
-    #Die vier Eckdaten in Sekundenangaben:
+    #Die vier Eckdaten in Sekundenangaben (interpretation der Zeitangabe als Ortszeit):
     src_start=int(time.mktime([int(src_start_str[0:4]), int(src_start_str[4:6]), int(src_start_str[6:8]), int(src_start_str[9:11]), \
                            int(src_start_str[11:13]), int(src_start_str[13:15]),0,0,0]))
     src_end=int(time.mktime([int(src_end_str[0:4]), int(src_end_str[4:6]),int(src_end_str[6:8]), int(src_end_str[9:11]),\
-                         int(src_end_str[11:13]), int(src_end_str[13:15]),0,0,0]))
+                           int(src_end_str[11:13]), int(src_end_str[13:15]),0,0,0]))
     dst_start=int(time.mktime([int(dst_start_str[0:4]), int(dst_start_str[4:6]), int(dst_start_str[6:8]), int(dst_start_str[9:11]),\
                            int(dst_start_str[11:13]), int(dst_start_str[13:15]),0,0,0]))
     dst_end=dst_start+src_end-src_start
-
 
 
     mysql.execute('show tables like \''+typ+'_%\';')
     tabellen=mysql.fetchall()
     zwischentabelle=typ+'_'+src_start_str+'_tmp'
     if (typ=='h'):
-        mysql.execute('create table IF NOT EXISTS '+zwischentabelle+'       (srcIP integer(10) unsigned,\
+        mysql.execute('drop table if exists '+zwischentabelle+';')
+        mysql.execute('create table '+zwischentabelle+'       (srcIP integer(10) unsigned,\
                                                                             dstIP integer(10) unsigned,\
                                                                             srcPort smallint (5),\
                                                                             dstPort smallint (5),\
@@ -43,7 +48,8 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
                                                                             lastSwitched int (10) unsigned,\
                                                                             exporterID smallint (5) unsigned);')
     elif (typ=='d' or typ=='w'):
-        mysql.execute('create table IF NOT EXISTS '+zwischentabelle+'       (srcIP integer(10) unsigned,\
+        mysql.execute('drop table if exists '+zwischentabelle+';')
+        mysql.execute('create table '+zwischentabelle+'       (srcIP integer(10) unsigned,\
                                                                             dstIP integer(10) unsigned,\
                                                                             srcPort smallint (5),\
                                                                             dstPort smallint (5),\
@@ -69,22 +75,20 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
     #Einsetzen der veränderten Datensätze in die Zieltabellen, alle Halbstundentabellen im Zeitraum werden erzeugt,
     #die Datensätze werden eingetragen und leere Tabellen anschließend gelöscht    
         print("Veränderte Halbstundentabellen:")
-        #tab_beginn=erste Sekunde der ersten halben Stunde im einzusetzenden Bereich
-        tab_beginn=int(time.mktime([time.gmtime(dst_start)[0],time.gmtime(dst_start)[1],time.gmtime(dst_start)[2],time.gmtime(dst_start)[3],0,0,0,0,0])) 
-        #tab_ende=letzte Sekunde der letzen halben Stunde im einzusetzenden Bereich
-        tab_ende=int(time.mktime([time.gmtime(dst_end)[0],time.gmtime(dst_end)[1],time.gmtime(dst_end)[2],time.gmtime(dst_end)[3],59,59,0,0,0])) 
+        #tab_beginn=erste Sekunde der ersten halben Stunde im einzusetzenden Bereich (+1 Korrektur wegen CET)
+        tab_beginn=int(time.mktime([time.gmtime(dst_start)[0],time.gmtime(dst_start)[1],time.gmtime(dst_start)[2],time.gmtime(dst_start)[3] + 1,0,0,0,0,0])) 
+        #tab_ende=letzte Sekunde der letzen halben Stunde im einzusetzenden Bereich (+1 Korrektur wegen CET)
+        tab_ende=int(time.mktime([time.gmtime(dst_end)[0],time.gmtime(dst_end)[1],time.gmtime(dst_end)[2],time.gmtime(dst_end)[3] + 1,59,59,0,0,0])) 
         for i in range (tab_beginn,tab_ende,i+1800): 
             datum=time.gmtime(i)
-            tabname='h_'+str(datum[0])+str(datum[1]).rjust(2).replace(' ','0')+str(datum[2]).rjust(2).replace(' ','0')+'_\
-            '+str(datum[3]).rjust(2).replace(' ','0')+'_'
+            # +1 Korrektur wegen CET 
+            tabname='h_'+str(datum[0])+str(datum[1]).rjust(2).replace(' ','0')+str(datum[2]).rjust(2).replace(' ','0')+'_'+str(datum[3] + 1).rjust(2).replace(' ','0')+'_'
             if (datum[4]<30):
                 tabname=tabname+'0'
            
             else:
                 tabname=tabname+'1'
                
-                  
-
             mysql.execute('create table IF NOT EXISTS '+tabname+'       (srcIP integer(10) unsigned,\
                                                                             dstIP integer(10) unsigned,\
                                                                             srcPort smallint (5),\
@@ -97,8 +101,7 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
                                                                             lastSwitched int (10) unsigned,\
                                                                             exporterID smallint (5) unsigned);')
             mysql.execute('insert into '+tabname+' (select * from '+zwischentabelle+' where \
-            firstSwitched>='+str(i)+' and firstSwitched<='+str(i+1800)+' and \
-            first);')  
+            firstSwitched>='+str(i)+' and firstSwitched<='+str(i+1800)+');')  
             mysql.execute('select * from '+tabname+';')
             tabelle=mysql.fetchall()
             if not tabelle:
@@ -128,8 +131,8 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
                                                                             lastSwitched int (10) unsigned,\
                                                                             exporterID smallint (5) unsigned, \
                                                                             aggFlows SMALLINT(5) UNSIGNED);')
-            mysql.execute('insert into '+tabname+' (select * from '+zwischentabelle+' where firstSwitched>='+str(i)+' and firstSwitched<=\
-            '+str(i+86400)+');')  
+            mysql.execute('insert into '+tabname+' (select * from '+zwischentabelle+' where \
+	    firstSwitched>='+str(i)+' and firstSwitched<='+str(i+86400)+');')  
             mysql.execute('select * from '+tabname+';')
             tabelle=mysql.fetchall()
             if not tabelle:
