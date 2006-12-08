@@ -23,13 +23,16 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
 
     #Die vier Eckdaten in Sekundenangaben (interpretation der Zeitangabe als Ortszeit):
     src_start=int(time.mktime([int(src_start_str[0:4]), int(src_start_str[4:6]), int(src_start_str[6:8]), int(src_start_str[9:11]), \
-                           int(src_start_str[11:13]), int(src_start_str[13:15]),0,0,0]))
+                           int(src_start_str[11:13]), int(src_start_str[13:15]),0,0,-1]))
     src_end=int(time.mktime([int(src_end_str[0:4]), int(src_end_str[4:6]),int(src_end_str[6:8]), int(src_end_str[9:11]),\
-                           int(src_end_str[11:13]), int(src_end_str[13:15]),0,0,0]))
+                           int(src_end_str[11:13]), int(src_end_str[13:15]),0,0,-1]))
     dst_start=int(time.mktime([int(dst_start_str[0:4]), int(dst_start_str[4:6]), int(dst_start_str[6:8]), int(dst_start_str[9:11]),\
-                           int(dst_start_str[11:13]), int(dst_start_str[13:15]),0,0,0]))
+                           int(dst_start_str[11:13]), int(dst_start_str[13:15]),0,0,-1]))
     dst_end=dst_start+src_end-src_start
 
+    print('Startzeit UCT: '+time.asctime(time.gmtime(src_start))+' Localtime: '+time.asctime(time.localtime(src_start)))
+    print('Endzeit UCT: '+time.asctime(time.gmtime(src_end))+' Localtime: '+time.asctime(time.localtime(src_end)))
+    print('Zielzeit UCT: '+time.asctime(time.gmtime(dst_start))+' Localtime: '+time.asctime(time.localtime(dst_start)))
 
     mysql.execute('show tables like \''+typ+'_%\';')
     tabellen=mysql.fetchall()
@@ -38,10 +41,10 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
         mysql.execute('drop table if exists '+zwischentabelle+';')
         mysql.execute('create table '+zwischentabelle+'       (srcIP integer(10) unsigned,\
                                                                             dstIP integer(10) unsigned,\
-                                                                            srcPort smallint (5),\
-                                                                            dstPort smallint (5),\
-                                                                            proto tinyint (3),\
-                                                                            dstTos tinyint (3),\
+                                                                            srcPort smallint (5) unsigned,\
+                                                                            dstPort smallint (5) unsigned,\
+                                                                            proto tinyint (3) unsigned,\
+                                                                            dstTos tinyint (3) unsigned,\
                                                                             bytes bigint (20) unsigned,\
                                                                             pkts bigint (20) unsigned,\
                                                                             firstSwitched int (10) unsigned,\
@@ -51,9 +54,9 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
         mysql.execute('drop table if exists '+zwischentabelle+';')
         mysql.execute('create table '+zwischentabelle+'       (srcIP integer(10) unsigned,\
                                                                             dstIP integer(10) unsigned,\
-                                                                            srcPort smallint (5),\
-                                                                            dstPort smallint (5),\
-                                                                            proto tinyint (3),\
+                                                                            srcPort smallint (5) unsigned,\
+                                                                            dstPort smallint (5) unsigned,\
+                                                                            proto tinyint (3) unsigned,\
                                                                             bytes bigint (20) unsigned,\
                                                                             pkts bigint (20) unsigned,\
                                                                             firstSwitched int (10) unsigned,\
@@ -75,14 +78,13 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
     #Einsetzen der veränderten Datensätze in die Zieltabellen, alle Halbstundentabellen im Zeitraum werden erzeugt,
     #die Datensätze werden eingetragen und leere Tabellen anschließend gelöscht    
         print("Veränderte Halbstundentabellen:")
-        #tab_beginn=erste Sekunde der ersten halben Stunde im einzusetzenden Bereich (+1 Korrektur wegen CET)
-        tab_beginn=int(time.mktime([time.gmtime(dst_start)[0],time.gmtime(dst_start)[1],time.gmtime(dst_start)[2],time.gmtime(dst_start)[3] + 1,0,0,0,0,0])) 
-        #tab_ende=letzte Sekunde der letzen halben Stunde im einzusetzenden Bereich (+1 Korrektur wegen CET)
-        tab_ende=int(time.mktime([time.gmtime(dst_end)[0],time.gmtime(dst_end)[1],time.gmtime(dst_end)[2],time.gmtime(dst_end)[3] + 1,59,59,0,0,0])) 
+        #tab_beginn=erste Sekunde der ersten halben Stunde im einzusetzenden Bereich
+        tab_beginn=int(time.mktime([time.localtime(dst_start)[0],time.localtime(dst_start)[1],time.localtime(dst_start)[2],time.localtime(dst_start)[3],0,0,0,0,-1])) 
+        #tab_ende=letzte Sekunde der letzen halben Stunde im einzusetzenden Bereich
+        tab_ende=int(time.mktime([time.localtime(dst_end)[0],time.localtime(dst_end)[1],time.localtime(dst_end)[2],time.localtime(dst_end)[3],59,59,0,0,-1])) 
         for i in range (tab_beginn,tab_ende,i+1800): 
-            datum=time.gmtime(i)
-            # +1 Korrektur wegen CET 
-            tabname='h_'+str(datum[0])+str(datum[1]).rjust(2).replace(' ','0')+str(datum[2]).rjust(2).replace(' ','0')+'_'+str(datum[3] + 1).rjust(2).replace(' ','0')+'_'
+            datum=time.localtime(i)
+            tabname='h_'+str(datum[0])+str(datum[1]).rjust(2).replace(' ','0')+str(datum[2]).rjust(2).replace(' ','0')+'_'+str(datum[3]).rjust(2).replace(' ','0')+'_'
             if (datum[4]<30):
                 tabname=tabname+'0'
            
@@ -91,10 +93,10 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
                
             mysql.execute('create table IF NOT EXISTS '+tabname+'       (srcIP integer(10) unsigned,\
                                                                             dstIP integer(10) unsigned,\
-                                                                            srcPort smallint (5),\
-                                                                            dstPort smallint (5),\
-                                                                            proto tinyint (3),\
-                                                                            dstTos tinyint (3),\
+                                                                            srcPort smallint (5) unsigned,\
+                                                                            dstPort smallint (5) unsigned,\
+                                                                            proto tinyint (3) unsigned,\
+                                                                            dstTos tinyint (3) unsigned,\
                                                                             bytes bigint (20) unsigned,\
                                                                             pkts bigint (20) unsigned,\
                                                                             firstSwitched int (10) unsigned,\
@@ -114,17 +116,17 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
     #die Datensätze werden eingetragen und leere Tabellen anschließend gelöscht    
         print("Veränderte Tagestabellen:")
         #tab_beginn=erste Sekunde des ersten Tages im einzusetzenden Bereich
-        tab_beginn=int(time.mktime([time.gmtime(dst_start)[0],time.gmtime(dst_start)[1],time.gmtime(dst_start)[2],0,0,0,0,0,0])) 
+        tab_beginn=int(time.mktime([time.localtime(dst_start)[0],time.localtime(dst_start)[1],time.localtime(dst_start)[2],0,0,0,0,0,-1])) 
         #tab_ende=letzte Sekunde des letzten Tages im einzusetzenden Bereich
-        tab_ende=int(time.mktime([time.gmtime(dst_end)[0],time.gmtime(dst_end)[1],time.gmtime(dst_end)[2],23,59,59,0,0,0]))         
+        tab_ende=int(time.mktime([time.localtime(dst_end)[0],time.localtime(dst_end)[1],time.localtime(dst_end)[2],23,59,59,0,0,-1]))         
         for i in range (tab_beginn,tab_ende,i+86400):
-            datum=time.gmtime(i)
+            datum=time.localtime(i)
             tabname='d_'+str(datum[0])+str(datum[1]).rjust(2).replace(' ','0')+str(datum[2]).rjust(2).replace(' ','0')
             mysql.execute('create table IF NOT EXISTS '+tabname+'       (srcIP integer(10) unsigned,\
                                                                             dstIP integer(10) unsigned,\
-                                                                            srcPort smallint (5),\
-                                                                            dstPort smallint (5),\
-                                                                            proto tinyint (3),\
+                                                                            srcPort smallint (5) unsigned,\
+                                                                            dstPort smallint (5) unsigned,\
+                                                                            proto tinyint (3) unsigned,\
                                                                             bytes bigint (20) unsigned,\
                                                                             pkts bigint (20) unsigned,\
                                                                             firstSwitched int (10) unsigned,\
@@ -145,22 +147,22 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
     #die Datensätze werden eingetragen und leere Tabellen anschließend gelöscht    
         print("Veränderte Wochentabellen:")
         #tab_beginn=sicherheitshalber eine Woche vor der erste Sekunde des angegebenen ersten Tages im einzusetzenden Bereich
-        tab_beginn=int(time.mktime([time.gmtime(dst_start)[0],time.gmtime(dst_start)[1],time.gmtime(dst_start)[2],0,0,0,0,0,0]))-604800 
+        tab_beginn=int(time.mktime([time.localtime(dst_start)[0],time.localtime(dst_start)[1],time.localtime(dst_start)[2],0,0,0,0,0,-1]))-604800 
         #tab_ende=sicherheitshalber eine Woche nach der letzten Sekunde des angegebenen letzten Tages im einzusetzenden Bereich
-        tab_ende=int(time.mktime([time.gmtime(dst_end)[0],time.gmtime(dst_end)[1],time.gmtime(dst_end)[2],23,59,59,0,0,0]))+604800 
+        tab_ende=int(time.mktime([time.localtime(dst_end)[0],time.localtime(dst_end)[1],time.localtime(dst_end)[2],23,59,59,0,0,-1]))+604800 
         for i in range (dst_start,dst_end,i+604800):
             #Berechnen des Montags
-            wochentag=time.gmtime(i)[6]            
-            montag=time.gmtime(i - (wochentag * 24 * 3600)) 
+            wochentag=time.localtime(i)[6]            
+            montag=time.localtime(i - (wochentag * 24 * 3600)) 
             
 
             tabname='w_'+str(montag[0])+str(montag[1]).rjust(2).replace(' ','0')+str(montag[2]).rjust(2).replace(' ','0')
 
             mysql.execute('create table IF NOT EXISTS '+tabname+'       (srcIP integer(10) unsigned,\
                                                                             dstIP integer(10) unsigned,\
-                                                                            srcPort smallint (5),\
-                                                                            dstPort smallint (5),\
-                                                                            proto tinyint (3),\
+                                                                            srcPort smallint (5) unsigned,\
+                                                                            dstPort smallint (5) unsigned,\
+                                                                            proto tinyint (3) unsigned,\
                                                                             bytes bigint (20) unsigned,\
                                                                             pkts bigint (20) unsigned,\
                                                                             firstSwitched int (10) unsigned,\

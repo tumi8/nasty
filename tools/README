@@ -1,0 +1,16 @@
+Python Tools for NASTY database
+-------------------------------
+
+aggregator.py
+  aggregates half-hour tables to day tables and day tables to week tables
+  
+insert.py
+  inserts (copies) data from one table into another shifting timestamps
+  
+transform.py
+  transfers data from CVS tables into table (used for Omnet++ simulation output)
+
+transform-flow.py
+transform-flow-sets.py (requires set module, i.e. >=Python 2.4) 
+  transfers CVS data created by flow-export (flow-tools suite) into table
+  
