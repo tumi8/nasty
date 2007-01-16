@@ -1,159 +1,174 @@
+#!/usr/local/bin/python
 # -*- coding: utf-8 -*-
 #Programm zur Transformation mit Flow-Tools erzeugter Netzverkehrsdaten in mySQL-Tabellen
-#ohne Verwendung von Sets
 #erstellt am: 10.7.2006
-#letzte Änderung am 13.8.2006
+#letzte Änderung am 16.1.2007
 #erstellt von: Manuel Meiborg (manuel.meiborg@gmx.de)
-#Version 2.0
+#verbessert von: Dominik Brettnacher
+#Version 2.1
 #
-#Dieses Script arbeitet auf den ASCII-Format Ausgaben der netflow-Tools. Die einzelnen Verkehrsdaten 
-#werden angepasst und entsprechend ihrer Zeitstempel in 11 spaltige MySQL-Tabellen geschrieben, 
-#die mit den tools aggregator.py und insert.py weiterbearbeitet werden können 
-#
-#FIXME: Zeitstempel sind UTC, Tabellennamen aber gemäß lokaler Zeit
+#Dieses Script arbeitet auf den ASCII-Format Ausgaben der netflow-Tools. Die einzelnen Verkehrsdaten werden angepasst und entsprechend
+#ihrer Zeitstempel in 11 spaltige MySQL-Tabellen geschrieben, die mit den tools aggregator.py und insert.py weiterbearbeitet werden können 
 
-import MySQLdb, sys, copy, time, os
-def transformation (filename, db, user, passwd):
-        
-    def ipZuZahl(adresse):
-    # umwandeln einer IP-Adresse im Format xxx.xxx.xxx.xxx in eine integer-Zahl
-        adresse=adresse.split('.')
-        return 2**24*long(adresse[0])+2**16*long(adresse[1])+2**8*long(adresse[2])+long(adresse[3])
+import MySQLdb, getopt, os, sys, time
 
-    def gettime(sysUpTime, unixSecs, timestamp):
-    #wandelt in UNIX-Zeit um
-        return int(unixSecs-(sysUpTime-timestamp)/1000)
+def transform(files, user, host, password, database, bin):
+        # konvertiert eine IP im dotted-quad Format in einen Integer
+        def ipZuZahl(adresse):
+                adresse=adresse.split('.')
+                return 2**24*long(adresse[0])+2**16*long(adresse[1])+2**8*long(adresse[2])+long(adresse
+                        [3])
 
-    def exporterID(expAddr):
-    #liefert die exporterID eines Paars aus sourceId und expAddr bzw erzeugt eine neue exporterID wenn das Paar
-    #noch nicht vorhanden ist und liefert diese zurück
-        expTab =connection.cursor()
-        expTab.execute('select id from exporter where  srcIP = %s', (expAddr))
-        inhalt= expTab.fetchone()
-        if inhalt == None:  # unbekannter Exporter
-            expTab.execute('insert into exporter (srcIP) values (%s);',(expAddr))
-            expTab.execute('select id from exporter where srcIP = %s', (expAddr))
-            ID= int(expTab.fetchone()[0])
-        else:
-            ID= int(inhalt[0])
-        return ID
+        # wandelt in UNIX-Zeit um
+        # 
+        def gettime(sysUpTime, unixSecs, timestamp):
+                return int(unixSecs-(sysUpTime-timestamp)/1000)
 
-
-
-    allesInOrdnung=True
-    print('')
-    if bin:
         try:
-            os.system('flow-export -f2 <'+filename+'> '+filename+'_tmp')
-            filename=filename+'_tmp'
-        except:
-            print('Umwandlung der Binärdatei '+filename+' fehlgeschlagen. Datei muß im cflowd-Format vorliegen.')
-    #Öffnen der Datei 
-    try:
-        daten = file (filename,"r") #Daten aus Datei auslesen                                 
-    except:
-        print ('Datei '+filename+' konnte nicht geöffnet werden!')
-        allesInOrdnung=False
+                connection = MySQLdb.connect(host,user,password,database)
+        except MySQLdb.OperationalError, message:  
+                print ('%d: Konnte nicht mit Datenbank verbinden: %s' % (message[0], message[1]))
+                return
 
-    #Herstellen der Verbindung zur Datenbank:
-    try:
-        connection = MySQLdb.connect('localhost',user,passwd,db)
-    except:
-        print ('Datenbank '+db+' konnte als user '+user+' nicht geöffnet werden!')
-        allesInOrdnung=False
+        # liefert die Exporter-ID zu einer IP
+        # legt eine in der Exporter-Tabelle an, falls keine vorhanden ist
+        def exporterID(expAddr):
+            if(not exporters.has_key(expAddr)):
+                c = connection.cursor()
+                c.execute('INSERT INTO exporter (srcIP) VALUES (%s)', (expAddr))
+                c.execute('SELECT LAST_INSERT_ID()')
+                exporters[expAddr] = int(c.fetchone()[0])
+            return exporters[expAddr]
 
-    # Eintragen der Daten in die Tabelle
-    if allesInOrdnung:
+        def locktables():
+           connection.cursor().execute('LOCK TABLES ' + ','.join(map (lambda x: x + ' WRITE', tables)))
 
-        namenserzeugung=0
-        tabtest=0
-        einfuegen=0
-        i=0
+        def createtable(t):
+            if(t not in tables):
+                c = connection.cursor()
+                c.execute('''CREATE TABLE ''' + t + '''(
+                        srcIP integer(10) unsigned,
+                        dstIP integer(10) unsigned,
+                        srcPort smallint (5) unsigned,
+                        dstPort smallint (5) unsigned,
+                        proto tinyint (3) unsigned,
+                        dstTos tinyint (3) unsigned,
+                        bytes bigint (20) unsigned,
+                        pkts bigint (20) unsigned, 
+                        firstSwitched integer (10) unsigned,
+                        lastSwitched integer (10) unsigned,
+                        exporterID smallint (5) unsigned)''')
+                tables.append(t)
+                locktables()
+
+        c = connection.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS `exporter` (
+                `id` smallint(6) NOT NULL auto_increment,
+            `sourceID` int(10) unsigned default NULL,
+                `srcIP` int(10) unsigned default NULL,
+                PRIMARY KEY  (`id`)
+                ) ENGINE=MyISAM DEFAULT CHARSET=latin1''')
+
+        # alle bereits vorhandenen Exporter einlesen
+        exporters = {}
+        c.execute('''SELECT srcIP,id FROM exporter''')
+        for row in c.fetchall():
+            exporters[int(row[0])] = int(row[1])
+
+        # alle bereits vorhandenen Tabellen einlesen
+        tables = []
+        c.execute('''SHOW TABLES''')
+        for row in c.fetchall():
+            tables.append(row[0])
+
+        locktables()
+           
+        for file in files:
+                if bin:
+                        handle = os.popen('flow-export -f2 <' + file)
+                else:
+                        handle = open(file,'r')
+
+                kopf = handle.readline()
+                for line in handle:
+#:unix_secs,unix_nsecs,sysuptime,exaddr,dpkts,doctets,first,last,engine_type,engine_id,srcaddr,dstaddr,nexthop,input,output,srcport,dstport,prot,tos,tcp_flags,src_mask,dst_mask,src_as,dst_as
+#1157476947,457,1029495428,212.88.128.35,7,1028,1029406775,1029407306,0,0,217.227.213.44,212.88.157.230,0.0.0.0,0,255,2740,80,6,0,27,0,0,9063,3320
+                    zeile = line.split(',')
+                    firstSwitched = gettime (int(zeile[2]),int(zeile[0]),int(zeile[6]))
+                    lastSwitched = gettime (int(zeile[2]),int(zeile[0]),int(zeile[7]))
+                    startzeit = time.localtime(firstSwitched)
+                    tabellenname = 'h_'
+                    tabellenname+=str(startzeit[0]) # Jahr
+                    tabellenname+=str(startzeit[1]).rjust(2).replace(' ','0') # Monat
+                    tabellenname+=str(startzeit[2]).rjust(2).replace(' ','0') # Tag
+                    tabellenname+='_'+str(startzeit[3]).rjust(2).replace(' ','0') #Stunde
+                    if startzeit[4]<30: #halbe Stunde                    
+                        tabellenname+='_0'
+                    else:
+                        tabellenname+='_1'
+
+                    createtable(tabellenname)
+
+                    connection.cursor().execute('INSERT INTO ' + tabellenname + ' VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                            (ipZuZahl(zeile[10]),\
+                             ipZuZahl(zeile[11]),\
+                             int(zeile[15]),\
+                             int(zeile[16]),\
+                             int(zeile[17]),\
+                             int(zeile[18]),\
+                             int(zeile[5]),\
+                             int(zeile[4]),\
+                             firstSwitched,\
+                             lastSwitched,\
+                             exporterID(ipZuZahl(zeile[3]))))
+                        
+                handle.close()
+
+        return
 
 
+def usage():
+    print ('''Benutzung: ''' + sys.argv[0] + ''' -d <database> [options] <file> ...
+        Optionen:
+        -d, --database=                         Name der Datenbank
+        -h, --host=                             Hostname
+        -u, --user=                             Benutzername
+        -p, --password=                         Passwort
+        -b, --binary                            Eingabe im Bin�rformat (ben�tigt flow-export)''')
 
- 
-        kopf=daten.readline()
-        while True:
-            zeile=daten.readline().split(',')
-            if zeile==['']: break  #=leere Liste wenn eof erreicht ist
+def main():
+        start=(time.time())
 
-            #Erzeugen des Tabellennamens
-            firstSwitched =gettime (int(zeile[2]),int(zeile[0]),int(zeile[6]))
-            startzeit=time.localtime(firstSwitched) # Ortszeit!!!
-            tabellenname='h_'
-            tabellenname+=str(startzeit[0])                                 #Jahr
-            tabellenname+=str(startzeit[1]).rjust(2).replace(' ','0')       #Monat
-            tabellenname+=str(startzeit[2]).rjust(2).replace(' ','0')       #Tag
-            tabellenname+='_'+str(startzeit[3]).rjust(2).replace(' ','0')   #Stunde
-            if startzeit[4]<30:                                             #halbe Stunde                    
-                tabellenname+='_0'
-            else:
-                tabellenname+='_1'
+        user=os.environ['LOGNAME']
+        host='localhost'
+        password=''
+        database=''
+        bin=False
 
-            #Erzeugen der Tabelle 
-            connection.cursor().execute('create table if not exists '+tabellenname+' (srcIP integer(10) unsigned,\
-                                                                    dstIP integer(10) unsigned,\
-                                                                    srcPort smallint (5) unsigned,\
-                                                                    dstPort smallint (5) unsigned,\
-                                                                    proto tinyint (3) unsigned,\
-                                                                    dstTos tinyint (3) unsigned,\
-                                                                    bytes bigint (20) unsigned,\
-                                                                    pkts bigint (20) unsigned,\
-                                                                    firstSwitched integer (10) unsigned,\
-                                                                    lastSwitched integer (10) unsigned,\
-                                                                    exporterID smallint (5) unsigned);')
+        try:
+                opts, args = getopt.gnu_getopt(sys.argv[1:], "u:p:d:b", ["user=", "host=", "password=", "database=","binary"])
+        except getopt.GetoptError:
+                print "Ung�ltige Option."
+                usage()
+                sys.exit(2)
 
+        for o, a in opts:
+                if o in ("-b", "--binary"):
+                        bin=True
+                if o in ("-u", "--user"):
+                        user=a
+                if o in ("-h", "--host"):
+                        host=a
+                if o in ("-p", "--password"):
+                        password=a
+                if o in ("-d", "--database"):
+                        database=a
 
-            connection.cursor().execute ('insert into '+tabellenname+' values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s);',
-            (ipZuZahl(zeile[10]),\
-             ipZuZahl(zeile[11]),\
-             int(zeile[15]),\
-             int(zeile[16]),\
-             int(zeile[17]),\
-             int(zeile[18]),\
-             int(zeile[5]),\
-             int(zeile[4]),\
-             firstSwitched,\
-             gettime (int(zeile[2]),int(zeile[0]),int(zeile[7])),\
-             exporterID(ipZuZahl(zeile[3]))))
+        if (database and len(args)):
+                transform(args, user, host, password, database, bin)
+                print("Laufzeit: "+str(int(time.time()-start))+" Sekunden")
+        else:
+                usage()
 
-        connection.cursor().close()
-        daten.close()
-        if bin:
-            os.system('rm '+filename) #Löschen der temporären ascii-Datei
-        print("Laufzeit: "+str(int(time.time()-start))+" Sekunden")
-
-start=(time.time())
-passwd ='' 
-filename=''
-user=''
-db=''
-bin = False
-
-for i in range(1, len(sys.argv)):  # Einlesen der Kommandozeilenargumente
-    if   sys.argv[i]=='-file':
-         filename=sys.argv[i+1]
-    elif sys.argv[i]=='-db':
-         db=sys.argv[i+1]
-    elif sys.argv[i]=='-user':
-         user=sys.argv[i+1]
-    elif sys.argv[i]=='-pw':
-         passwd=sys.argv[i+1]
-    elif sys.argv[i]=='-bin':
-        bin =True
-
-
-
-
-if (filename and db and user):                              
-    transformation (filename, db, user, passwd)
-    
-else:
-    print ('''Unzureichende oder fehlende Argumente, bitte beachten sie folgende Syntax:    
-    transform.py -file (Name der Quelldatei)
-                 -db (Name der Datenbank)
-                 -user (Benutzername)
-                 -pw (Passwort)
-                 -bin (falls Quelldatei nicht in ASCII-, sondern in Binärformat vorliegt flow-export muß im path verfügbar sein)
-                 ''')
+if __name__ == "__main__":
+    main()
