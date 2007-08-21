@@ -30,6 +30,10 @@ B) Installation and praparation of Tomcat (for the GUI):
 
 4. Generate key as described in $TOMCAT_HOME/conf/server.xml
 
+Troubleshooting:
+
+* Check if $TOMCAT_HOME is owned by the tomcat5 user with sufficient rights
+
 ----------------
 
 C) Building the IPFIX collector:

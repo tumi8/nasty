@@ -46,6 +46,7 @@
       <taglib-location>/WEB-INF/x-rt.tld</taglib-location>
    </taglib>
 
+<!-- For no login page, comment out the following lines: -->
    <security-constraint>
      <web-resource-collection>
 	<web-resource-name>nasty</web-resource-name>
@@ -69,6 +70,7 @@
 	   	   <form-error-page>/error.html</form-error-page>
 	   </form-login-config>
    </login-config>
+<!-- Stop commenting out -->
 
    <security-role>
      <role-name>admin</role-name>

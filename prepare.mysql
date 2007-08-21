@@ -2,17 +2,19 @@ CREATE DATABASE nasty;
 
 GRANT SELECT,INSERT,UPDATE,CREATE,DROP,DELETE,LOCK TABLES ON nasty.* TO 'nastyWriter' IDENTIFIED BY 'write@ccess';
 
+USE nasty;
+
 CREATE TABLE exporter (id SMALLINT NOT NULL AUTO_INCREMENT, sourceID INTEGER UNSIGNED, srcIP INTEGER UNSIGNED, PRIMARY KEY (id));
 
-create table users (
+CREATE TABLE users (
   user_name         varchar(15) not null primary key,
   user_pass         varchar(15) not null
 );
 
-create table user_roles (
+CREATE TABLE user_roles (
   user_name         varchar(15) not null,
   role_name         varchar(15) not null,
-  primary key (user_name, role_name)
+  PRIMARY KEY (user_name, role_name)
 );
 
 CREATE TABLE config (detailedDays SMALLINT UNSIGNED, detailedWeeks SMALLINT UNSIGNED);

@@ -6,8 +6,6 @@ echo "This script builds the nasty collector only."
 echo "************************************************************************"
 echo;echo
 
-JAVA_HOME=/usr/lib/SunJava2-1.4.2
-
 if [ ! -d $JAVA_HOME ] ; then
 	echo -n "JAVA_HOME is incorrect. Enter correct path: "
 	read JAVA_HOME
