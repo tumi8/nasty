@@ -68,6 +68,7 @@ def query_metrics(user, host, password, database, interval, addr, mask, port, pr
 			proto='-1'
 
         for table in tables:
+		# to ignore duplicate flow keys: COUNT(DISTINCT srcIp,dstIp,srcPort,dstPort,proto) instead of COUNT(*)
                 c.execute(\
                             'SELECT t1.i, t1.sb, t2.sb, t1.sp, t2.sp, t1.sr, t2.sr FROM ('+\
                             'SELECT (firstSwitched DIV '+interval+')*'+interval+' AS i, SUM(bytes) AS sb, SUM(pkts) AS sp, COUNT(*) AS sr FROM '+table+filter1+' GROUP BY (firstSwitched DIV '+interval+')'+\
