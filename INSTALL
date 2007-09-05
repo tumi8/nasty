@@ -14,7 +14,7 @@ A) Installation and preparation of MySQL:
    The user and password are used for login to the GUI.
 
    Example:
-   mysql> insert into user_roles ('nasty_user', 'admin');
+   mysql> insert into user_roles values ('nasty_user', 'admin');
    mysql> insert into users values ('nasty_user', 'password');
 
 ----------------
@@ -33,6 +33,7 @@ B) Installation and praparation of Tomcat (for the GUI):
 Troubleshooting:
 
 * Check if $TOMCAT_HOME is owned by the tomcat5 user with sufficient rights
+* Check /etc/init.d/tomcat5 script and disable Tomcat Security
 
 ----------------
 
