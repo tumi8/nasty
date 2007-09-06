@@ -310,7 +310,7 @@
                                         </c:forEach>
                                 </select>
                                 <select name="startYear" size="1">
-                                        <c:forEach begin="2005" end="2006" var="current">
+                                        <c:forEach begin="2005" end="2008" var="current">
                                                 <c:choose>
                                                         <c:when test="${param.submitted && param.startYear==current}">
                                                                 <option selected><c:out value="${current}" /></option>
@@ -372,7 +372,7 @@
                                         </c:forEach>
                                 </select>
                                 <select name="endYear" size="1">
-                                        <c:forEach begin="2005" end="2006" var="current">
+                                        <c:forEach begin="2005" end="2008" var="current">
                                                 <c:choose>
                                                         <c:when test="${param.submitted && param.endYear==current}">
                                                                 <option selected><c:out value="${current}" /></option>

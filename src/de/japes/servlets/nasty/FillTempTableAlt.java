@@ -116,9 +116,10 @@ public class FillTempTableAlt extends FillTempTable implements Runnable {
    * Also added will be the database identifier (by replacing "databaseID" in the SELECT-statement
    * with the actual value).
    */
-  public void fillTables() {
+  public long fillTables() {
     Iterator it = tables.listIterator();    // list of relevant source-tables
     String srctable="";                     // holds name of current source-table
+    long rowcount = 0;
 		
     // add the database identifier into the SELECT statement
     queryStr = queryStr.replaceAll("databaseID", ""+databaseID);
@@ -128,12 +129,13 @@ public class FillTempTableAlt extends FillTempTable implements Runnable {
       try {
          // extract data from source table and store it into remote temporary database
          srctable = (String)it.next();
-         sourceDB.executeUpdate("INSERT IGNORE INTO "+tmpTable+" "+queryStr.replaceAll("#srctable#",srctable));
+         rowcount += sourceDB.executeUpdate("INSERT IGNORE INTO "+tmpTable+" "+queryStr.replaceAll("#srctable#",srctable));
       } catch (SQLException e) {
          // error, report to caller
          output += "Error while filling temporary database from source table "+srctable+"!";
          output += "<p>"+e.getMessage()+"<p>";        
          success = false;
+	 return 0;
       }
     }
 
@@ -204,7 +206,9 @@ public class FillTempTableAlt extends FillTempTable implements Runnable {
         output += "Error while filling temporary database from source table "+srctable+" with mysqldump!";
         output += "<p>"+e.getMessage()+"<p>";        
         success = false;
+	return 0;
     }
+    return rowcount;
   }
   
 }

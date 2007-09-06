@@ -207,11 +207,11 @@ public class FillTempTable implements Runnable {
         //i = System.currentTimeMillis();
         // ***************************************************
 
-        fillTables();
+        long rowcount = fillTables();
 
         // ************Performance watch**********************
         i = (System.currentTimeMillis()-i);
-        output += Thread.currentThread().getName()+" finished after "+i+" ms.<p>";
+        output += Thread.currentThread().getName()+" finished after "+i+" ms, resulted in "+rowcount+" rows.<p>";
         // ***************************************************
     }
   }
@@ -335,7 +335,7 @@ public class FillTempTable implements Runnable {
    * table, this method will catch the corresponding SQL-exception and continue unaffectedly,
    * with the duplicate data just not being inserted.)
    */
-  public void fillTables() {
+  public long fillTables() {
     // list of relevant source-tables
     Iterator it = tables.listIterator();
     // holds results of each queried source table
@@ -347,10 +347,11 @@ public class FillTempTable implements Runnable {
     String srctable="";
     // number of columns in database table
     int columnCount;
+    long rowcount = 0;
 
     // add the database identifier into the SELECT statement
     queryStr = queryStr.replaceAll("databaseID", ""+databaseID);
-
+    
     // iterate through all relevant source-tables
     while (it.hasNext()) {
       try {
@@ -360,44 +361,46 @@ public class FillTempTable implements Runnable {
 
             // databases identical, read data directly via SQL into temporary table
             srctable = (String)it.next();
-            destDB.executeUpdate("INSERT IGNORE INTO "+tmpTable+" "+queryStr.replaceAll("#srctable#",srctable));
+            rowcount += destDB.executeUpdate("INSERT IGNORE INTO "+tmpTable+" "+queryStr.replaceAll("#srctable#",srctable));
 
         } else {
-
             // databases not identical, transfer data "manually"
+	    //
+	    final int MAX_ROWS = 50000;
             // read data from source-table
             srctable = (String)it.next();
-            result = sourceDB.executeQuery(queryStr.replaceAll("#srctable#",srctable));
-            columnCount = result.getMetaData().getColumnCount();
+	    String curQueryStr = queryStr.replaceAll("#srctable#",srctable);
+	    long pos = 0;
+	    boolean firstValue;
+	    statement = new StringBuffer();
+	    do {
+		// read only 50000 rows in one step to avoid heap space out of memory error
+		result = sourceDB.executeQuery(curQueryStr+" LIMIT "+pos+","+MAX_ROWS);
+		columnCount = result.getMetaData().getColumnCount();
+		statement.append("INSERT IGNORE INTO "+tmpTable+" VALUES ");
 
-            // insert data into local temporary table
-            // compose SQL-INSERT statement from extracted remote data
-            long count = 0;
-            statement = new StringBuffer("INSERT IGNORE INTO "+tmpTable+" VALUES ");
-            boolean firstValue=true;
-            while (result.next()) {
-                if (!firstValue) {
-                    statement.append(",");
-                } else firstValue=false;
-                statement.append("(");
-                int i;
-                for (i=1; i<columnCount; i++) {
-                    statement.append(result.getString(i)+",");
-                }
-                statement.append(result.getString(i)+")");
-                count++;
-                if (count>50000) {
-                    // buffer might get too big, so insert data now, clear buffer and start new
-                    // INSERT-statement
-                    destDB.executeUpdate(statement.toString());
-                    firstValue = true;
-                    statement = new StringBuffer("INSERT IGNORE INTO "+tmpTable+" VALUES ");
-                    count = 0;
-                }
-            }
-            result.close();
-            // execute INSERT-statement (but only if it contains any data)
-            if (!firstValue) destDB.executeUpdate(statement.toString());
+		// insert data into local temporary table
+		// compose SQL-INSERT statement from extracted remote data
+		firstValue=true;
+		while (result.next()) {
+		    if (!firstValue) {
+			statement.append(",");
+		    } else firstValue=false;
+		    statement.append("(");
+		    int i;
+		    for (i=1; i<columnCount; i++) {
+			statement.append("'"+result.getString(i)+"',");
+		    }
+		    statement.append("'"+result.getString(i)+"')");
+		}
+		// execute INSERT-statement (but only if it contains any data)
+		if (!firstValue)
+		    rowcount +=  destDB.executeUpdate(statement.toString());
+		// release results and statement buffer
+		result.close();
+		statement.setLength(0);
+		pos += MAX_ROWS;
+	    } while(!firstValue);
         }
 
       } catch (SQLException e) {
@@ -405,9 +408,12 @@ public class FillTempTable implements Runnable {
             output += "Error while filling temporary database from source table "+srctable+"!";
             output += "<p>"+e.getMessage()+"<p>";        
             success = false;
+	    return 0;
       }
       
-    }
+    } // while (it.hasNext())
+    return rowcount;
   }
+
   
 }
