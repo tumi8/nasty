@@ -5,7 +5,7 @@
 
 import MySQLdb, getopt, os, sys, string
 
-def query_metrics(user, host, password, database, interval, addr, mask, port, proto, topas):
+def query_metrics(user, host, password, database, interval, addr, mask, port, proto, topas, distinct):
         # konvertiert eine IP im dotted-quad Format in einen Integer
         def ipZuZahl(adresse):
                 adresse=adresse.split('.')
@@ -69,14 +69,20 @@ def query_metrics(user, host, password, database, interval, addr, mask, port, pr
 
         for table in tables:
 		# to ignore duplicate flow keys: COUNT(DISTINCT srcIp,dstIp,srcPort,dstPort,proto) instead of COUNT(*)
+		if distinct:
+			countstr='COUNT(DISTINCT srcIp,dstIp,srcPort,dstPort,proto)'
+		else:
+			countstr='COUNT(*)'
+
                 c.execute(\
                             'SELECT t1.i, t1.sb, t2.sb, t1.sp, t2.sp, t1.sr, t2.sr FROM ('+\
-                            'SELECT (firstSwitched DIV '+interval+')*'+interval+' AS i, SUM(bytes) AS sb, SUM(pkts) AS sp, COUNT(*) AS sr FROM '+table+filter1+' GROUP BY (firstSwitched DIV '+interval+')'+\
+                            'SELECT (firstSwitched DIV '+interval+')*'+interval+' AS i, SUM(bytes) AS sb, SUM(pkts) AS sp, '+countstr+' AS sr FROM '+table+filter1+' GROUP BY (firstSwitched DIV '+interval+')'+\
                             ') AS t1 JOIN ('+\
-                            'SELECT (firstSwitched DIV '+interval+')*'+interval+' AS i, SUM(bytes) AS sb, SUM(pkts) AS sp, COUNT(*) AS sr FROM '+table+filter2+' GROUP BY (firstSwitched DIV '+interval+')'+\
+                            'SELECT (firstSwitched DIV '+interval+')*'+interval+' AS i, SUM(bytes) AS sb, SUM(pkts) AS sp, '+countstr+' AS sr FROM '+table+filter2+' GROUP BY (firstSwitched DIV '+interval+')'+\
                             ') AS t2 ON t1.i=t2.i'\
                                 )
-                for row in c.fetchall():
+
+		for row in c.fetchall():
 			if topas:
 				print(addr+':'+port+'|'+proto+'_'+str(row[4])+' '+str(row[3])+' '+str(row[2])+' '+str(row[1])+' '+str(row[6])+' '+str(row[5]))
 				print('---')
@@ -94,12 +100,13 @@ def usage():
         -h, --host=                             Hostname
         -u, --user=                             Benutzername
         -p, --password=                         Passwort
-        -i, --interval=                         Intervalllänge
-        -a, --address=                          IP-Adresse
-        -m, --mask=                             Adressmaske
-        -o, --port=                             Port
-        -r, --protocol=                         Protokoll
-        -t, --topas                             Ausgabe für Topas-Stat-Modul''')
+        -I, --interval=                         Intervalllaenge
+        -A, --address=                          IP-Adresse
+        -M, --mask=                             Adressmaske
+        -P, --port=                             Port
+        -R, --protocol=                         Protokoll
+        -T, --topas                             Ausgabe fuer Topas-Stat-Modul
+        -D, --distinct                          Nur verschiedene (DISTINCT) IP-5-Tupel zaehlen''')
     print ('''Ausgabe:
 	 Intervallstartzeit, bytes_out, bytes_in, pkts_out, pkts_in, rcds_out, rcds_in''')
 
@@ -115,11 +122,12 @@ def main():
         proto=''
         interval='60'
 	topas=False
+	distinct=False
 
         try:
-                opts, args = getopt.gnu_getopt(sys.argv[1:], "u:h:p:d:i:a:m:o:r:t", ["user=", "host=", "password=", "database=", "interval=", "address=", "mask=", "port=", "protocol=", "topas"])
+                opts, args = getopt.gnu_getopt(sys.argv[1:], "u:h:p:d:I:A:M:P:R:TD", ["user=", "host=", "password=", "database=", "interval=", "address=", "mask=", "port=", "protocol=", "topas", "distinct"])
         except getopt.GetoptError:
-                print "Ungültige Option."
+                print "Ungueltige Option."
                 usage()
                 sys.exit(2)
 
@@ -132,21 +140,23 @@ def main():
                         password=a
                 if o in ("-d", "--database"):
                         database=a
-                if o in ("-i", "--interval"):
+                if o in ("-I", "--interval"):
                         interval=a
-                if o in ("-a", "--address"):
+                if o in ("-A", "--address"):
                         addr=a
-                if o in ("-m", "--mask"):
+                if o in ("-M", "--mask"):
                         mask=string.atoi(a)
-                if o in ("-o", "--port"):
+                if o in ("-P", "--port"):
                         port=a
-                if o in ("-r", "--protocol"):
+                if o in ("-R", "--protocol"):
                         proto=a
-                if o in ("-t", "--topas"):
+                if o in ("-T", "--topas"):
                         topas=True
-
+                if o in ("-D", "--distinct"):
+                        distinct=True
+	
         if (database):
-                query_metrics(user, host, password, database, interval, addr, mask, port, proto, topas)
+                query_metrics(user, host, password, database, interval, addr, mask, port, proto, topas, distinct)
         else:
                 usage()
 
