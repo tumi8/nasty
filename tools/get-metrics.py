@@ -5,7 +5,7 @@
 
 import MySQLdb, getopt, os, sys, string
 
-def query_metrics(user, host, password, database, interval, addr, mask, port, proto, topas, distinct):
+def query_metrics(user, host, password, database, interval, scale, addr, mask, port, proto, topas, distinct):
         # konvertiert eine IP im dotted-quad Format in einen Integer
         def ipZuZahl(adresse):
                 adresse=adresse.split('.')
@@ -75,7 +75,7 @@ def query_metrics(user, host, password, database, interval, addr, mask, port, pr
 			countstr='COUNT(*)'
 
                 c.execute(\
-                            'SELECT t1.i, t1.sb, t2.sb, t1.sp, t2.sp, t1.sr, t2.sr FROM ('+\
+                            'SELECT t1.i, t1.sb DIV '+scale+', t2.sb DIV '+scale+', t1.sp DIV '+scale+', t2.sp DIV '+scale+', t1.sr DIV '+scale+', t2.sr DIV '+scale+' FROM ('+\
                             'SELECT (firstSwitched DIV '+interval+')*'+interval+' AS i, SUM(bytes) AS sb, SUM(pkts) AS sp, '+countstr+' AS sr FROM '+table+filter1+' GROUP BY (firstSwitched DIV '+interval+')'+\
                             ') AS t1 JOIN ('+\
                             'SELECT (firstSwitched DIV '+interval+')*'+interval+' AS i, SUM(bytes) AS sb, SUM(pkts) AS sp, '+countstr+' AS sr FROM '+table+filter2+' GROUP BY (firstSwitched DIV '+interval+')'+\
@@ -101,6 +101,7 @@ def usage():
         -u, --user=                             Benutzername
         -p, --password=                         Passwort
         -I, --interval=                         Intervalllaenge
+        -S, --scale=                            Alle Metrikwerte werden durch den Wert geteilt
         -A, --address=                          IP-Adresse
         -M, --mask=                             Adressmaske
         -P, --port=                             Port
@@ -123,9 +124,10 @@ def main():
         interval='60'
 	topas=False
 	distinct=False
+	scale=1
 
         try:
-                opts, args = getopt.gnu_getopt(sys.argv[1:], "u:h:p:d:I:A:M:P:R:TD", ["user=", "host=", "password=", "database=", "interval=", "address=", "mask=", "port=", "protocol=", "topas", "distinct"])
+                opts, args = getopt.gnu_getopt(sys.argv[1:], "u:h:p:d:I:S:A:M:P:R:TD", ["user=", "host=", "password=", "database=", "interval=", "scale=", "address=", "mask=", "port=", "protocol=", "topas", "distinct"])
         except getopt.GetoptError:
                 print "Ungueltige Option."
                 usage()
@@ -142,6 +144,8 @@ def main():
                         database=a
                 if o in ("-I", "--interval"):
                         interval=a
+                if o in ("-S", "--scale"):
+                        scale=a
                 if o in ("-A", "--address"):
                         addr=a
                 if o in ("-M", "--mask"):
@@ -156,7 +160,7 @@ def main():
                         distinct=True
 	
         if (database):
-                query_metrics(user, host, password, database, interval, addr, mask, port, proto, topas, distinct)
+                query_metrics(user, host, password, database, interval, scale, addr, mask, port, proto, topas, distinct)
         else:
                 usage()
 
