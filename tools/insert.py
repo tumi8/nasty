@@ -17,7 +17,7 @@
 # Dadurch wird die Umwandlung Zeitstempel<=>Tabellenname erschwert => sollte in zukuenftigen Versionen nicht mehr sein.
 # Im Moment ist das im Programm fuer Halbstundentabellen beruecksichtigt.
 
-import sys,time, MySQLdb
+import sys, time, MySQLdb, os
 
 def insert (src_start_str, src_end_str, dst_start_str, typ):
 
@@ -82,7 +82,7 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
         tab_beginn=int(time.mktime([time.localtime(dst_start)[0],time.localtime(dst_start)[1],time.localtime(dst_start)[2],time.localtime(dst_start)[3],0,0,0,0,-1])) 
         #tab_ende=letzte Sekunde der letzen halben Stunde im einzusetzenden Bereich
         tab_ende=int(time.mktime([time.localtime(dst_end)[0],time.localtime(dst_end)[1],time.localtime(dst_end)[2],time.localtime(dst_end)[3],59,59,0,0,-1])) 
-        for i in range (tab_beginn,tab_ende,i+1800): 
+        for i in range (tab_beginn,tab_ende,1800): 
             datum=time.localtime(i)
             tabname='h_'+str(datum[0])+str(datum[1]).rjust(2).replace(' ','0')+str(datum[2]).rjust(2).replace(' ','0')+'_'+str(datum[3]).rjust(2).replace(' ','0')+'_'
             if (datum[4]<30):
@@ -119,7 +119,7 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
         tab_beginn=int(time.mktime([time.localtime(dst_start)[0],time.localtime(dst_start)[1],time.localtime(dst_start)[2],0,0,0,0,0,-1])) 
         #tab_ende=letzte Sekunde des letzten Tages im einzusetzenden Bereich
         tab_ende=int(time.mktime([time.localtime(dst_end)[0],time.localtime(dst_end)[1],time.localtime(dst_end)[2],23,59,59,0,0,-1]))         
-        for i in range (tab_beginn,tab_ende,i+86400):
+        for i in range (tab_beginn,tab_ende,86400):
             datum=time.localtime(i)
             tabname='d_'+str(datum[0])+str(datum[1]).rjust(2).replace(' ','0')+str(datum[2]).rjust(2).replace(' ','0')
             mysql.execute('create table IF NOT EXISTS '+tabname+'       (srcIP integer(10) unsigned,\
@@ -150,7 +150,7 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
         tab_beginn=int(time.mktime([time.localtime(dst_start)[0],time.localtime(dst_start)[1],time.localtime(dst_start)[2],0,0,0,0,0,-1]))-604800 
         #tab_ende=sicherheitshalber eine Woche nach der letzten Sekunde des angegebenen letzten Tages im einzusetzenden Bereich
         tab_ende=int(time.mktime([time.localtime(dst_end)[0],time.localtime(dst_end)[1],time.localtime(dst_end)[2],23,59,59,0,0,-1]))+604800 
-        for i in range (dst_start,dst_end,i+604800):
+        for i in range (dst_start,dst_end,604800):
             #Berechnen des Montags
             wochentag=time.localtime(i)[6]            
             montag=time.localtime(i - (wochentag * 24 * 3600)) 
@@ -184,7 +184,7 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
 
 pw=''
 db=''
-user=''
+user=os.environ['LOGNAME']
 src_start=''
 src_end=''
 dst_start=''

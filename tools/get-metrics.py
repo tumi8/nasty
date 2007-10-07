@@ -67,6 +67,7 @@ def query_metrics(user, host, password, database, interval, scale, addr, mask, p
 		if proto=='':
 			proto='-1'
 
+	earliest = 0 # this is used for topas output only
         for table in tables:
 		# to ignore duplicate flow keys: COUNT(DISTINCT srcIp,dstIp,srcPort,dstPort,proto) instead of COUNT(*)
 		if distinct:
@@ -75,7 +76,7 @@ def query_metrics(user, host, password, database, interval, scale, addr, mask, p
 			countstr='COUNT(*)'
 
                 c.execute(\
-                            'SELECT t1.i, t1.sb DIV '+scale+', t2.sb DIV '+scale+', t1.sp DIV '+scale+', t2.sp DIV '+scale+', t1.sr DIV '+scale+', t2.sr DIV '+scale+' FROM ('+\
+                            'SELECT t1.i, t1.sb'+scale+', t2.sb'+scale+', t1.sp'+scale+', t2.sp'+scale+', t1.sr'+scale+', t2.sr'+scale+' FROM ('+\
                             'SELECT (firstSwitched DIV '+interval+')*'+interval+' AS i, SUM(bytes) AS sb, SUM(pkts) AS sp, '+countstr+' AS sr FROM '+table+filter1+' GROUP BY (firstSwitched DIV '+interval+')'+\
                             ') AS t1 JOIN ('+\
                             'SELECT (firstSwitched DIV '+interval+')*'+interval+' AS i, SUM(bytes) AS sb, SUM(pkts) AS sp, '+countstr+' AS sr FROM '+table+filter2+' GROUP BY (firstSwitched DIV '+interval+')'+\
@@ -84,8 +85,21 @@ def query_metrics(user, host, password, database, interval, scale, addr, mask, p
 
 		for row in c.fetchall():
 			if topas:
+				# print empty intervals if necessary
+				if earliest != 0:
+					i = i + 1
+					while i < (row[0]-earliest) / string.atoi(interval):
+						print('--- '+str(i))
+						i = i + 1
+					    
 				print(addr+':'+port+'|'+proto+'_'+str(row[4])+' '+str(row[3])+' '+str(row[2])+' '+str(row[1])+' '+str(row[6])+' '+str(row[5]))
-				print('---')
+
+				if earliest == 0:
+					i = 0
+					print('--- 0')
+					earliest = row[0]
+				else:
+					print('--- '+str(i))
 			else:
 				print(str(row[0])+'\t'+str(row[1])+'\t'+str(row[2])+'\t'+str(row[3])+'\t'+str(row[4])+'\t'+str(row[5])+'\t'+str(row[6]))
 
@@ -124,7 +138,7 @@ def main():
         interval='60'
 	topas=False
 	distinct=False
-	scale=1
+	scale=''
 
         try:
                 opts, args = getopt.gnu_getopt(sys.argv[1:], "u:h:p:d:I:S:A:M:P:R:TD", ["user=", "host=", "password=", "database=", "interval=", "scale=", "address=", "mask=", "port=", "protocol=", "topas", "distinct"])
@@ -143,17 +157,17 @@ def main():
                 if o in ("-d", "--database"):
                         database=a
                 if o in ("-I", "--interval"):
-                        interval=a
+                        interval=str(string.atoi(a))
                 if o in ("-S", "--scale"):
-                        scale=a
+                        scale=' DIV '+str(string.atoi(a))
                 if o in ("-A", "--address"):
                         addr=a
                 if o in ("-M", "--mask"):
                         mask=string.atoi(a)
                 if o in ("-P", "--port"):
-                        port=a
+                        port=str(string.atoi(a))
                 if o in ("-R", "--protocol"):
-                        proto=a
+                        proto=str(string.atoi(a))
                 if o in ("-T", "--topas"):
                         topas=True
                 if o in ("-D", "--distinct"):
