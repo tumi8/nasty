@@ -96,7 +96,7 @@ def transform(files, user, host, password, database, bin):
                     zeile = line.split(',')
                     firstSwitched = gettime (int(zeile[2]),int(zeile[0]),int(zeile[6]))
                     lastSwitched = gettime (int(zeile[2]),int(zeile[0]),int(zeile[7]))
-                    startzeit = time.localtime(firstSwitched)
+                    startzeit = time.gmtime(firstSwitched)
                     tabellenname = 'h_'
                     tabellenname+=str(startzeit[0]) # Jahr
                     tabellenname+=str(startzeit[1]).rjust(2).replace(' ','0') # Monat

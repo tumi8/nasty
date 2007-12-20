@@ -42,6 +42,7 @@ package de.japes.net.nasty.collector;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
+import java.util.TimeZone;
 import java.io.*;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
@@ -66,7 +67,8 @@ public class FlowData {
 	private PreparedStatement preparedSelect = null;
 	private PreparedStatement preparedUpdate = null;
 	LinkedList duplicates = new LinkedList();
-	private static Calendar tmpTime = new GregorianCalendar();
+	// gerhard: use UTC (GMT) as time zone for table names
+	private static Calendar tmpTime = new GregorianCalendar(TimeZone.getTimeZone("GMT+00:00"));
 	private static HashSet knownTables = new HashSet();
 	private static final short CACHE_SIZE = 50;
 	private static exportableFlow[] flowCache = new exportableFlow[CACHE_SIZE];

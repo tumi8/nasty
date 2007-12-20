@@ -54,7 +54,7 @@ def query_metrics(user, host, password, database, interval, scale, addr, mask, p
 
         # alle bereits vorhandenen Tabellen einlesen
         tables = []
-        c.execute('''SHOW TABLES LIKE \'h_%\'''')
+        c.execute('''SHOW TABLES LIKE \'h\\_%\'''')
         for row in c.fetchall():
                 tables.append(row[0])
 

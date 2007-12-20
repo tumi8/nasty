@@ -147,7 +147,7 @@ for i in range(1, len(sys.argv)):  # Einlesen der Kommandozeilenargumente
         bin =True
 
 
-
+print('Achtung! Dieses Skript geht noch von Tabellennamen gemaess Ortszeit aus.')
 
 if (filename and db and user):                              
     transformation (filename, db, user, passwd)

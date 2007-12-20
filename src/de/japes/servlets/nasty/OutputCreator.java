@@ -45,6 +45,7 @@ import java.sql.Statement;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.TimeZone;
 import java.util.ArrayList;
 
 /**
@@ -157,7 +158,7 @@ abstract class OutputCreator {
 		}
 		
                 // retrieve selected time bounds
-		GregorianCalendar cal = new GregorianCalendar();
+		GregorianCalendar cal = new GregorianCalendar(TimeZone.getTimeZone("GMT+00:00"));
                 if (restrictTime) {
                     // read time bounds set by user and transform them into millisecond-value
                     // (month value in Calendar-class is 0-based (January is 0)!)

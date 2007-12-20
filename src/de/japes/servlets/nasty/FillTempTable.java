@@ -45,6 +45,7 @@ import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.TimeZone;
 import java.util.LinkedList;
 import java.util.Iterator;
 
@@ -242,7 +243,7 @@ public class FillTempTable implements Runnable {
     boolean dayTable = false;
     boolean weekTable = false;
 		
-    Calendar tableTime = new GregorianCalendar();
+    Calendar tableTime = new GregorianCalendar(TimeZone.getTimeZone("GMT+00:00"));
 		
     // the SQL-statement to get the names of the available tables in source database
     statement = "SHOW TABLES LIKE '_\\_%'";

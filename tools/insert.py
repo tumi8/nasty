@@ -34,7 +34,7 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
     print('Endzeit UCT: '+time.asctime(time.gmtime(src_end))+' Localtime: '+time.asctime(time.localtime(src_end)))
     print('Zielzeit UCT: '+time.asctime(time.gmtime(dst_start))+' Localtime: '+time.asctime(time.localtime(dst_start)))
 
-    mysql.execute('show tables like \''+typ+'_%\';')
+    mysql.execute('show tables like \''+typ+'\\_%\';')
     tabellen=mysql.fetchall()
     zwischentabelle=typ+'_'+src_start_str+'_tmp'
     if (typ=='h'):
@@ -210,6 +210,7 @@ for i in range(1, len(sys.argv)):  # Einlesen der Kommandozeilenargumente
          dst_start=sys.argv[i+1]
 
 
+print('Achtung! Dieses Skript geht noch von Tabellennamen gemaess Ortszeit aus.')
 
 
 if (db and user and typ and (len(src_start)==15) and (len(src_end)==15) and (len(dst_start)==15)):

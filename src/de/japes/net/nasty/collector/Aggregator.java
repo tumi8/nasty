@@ -47,6 +47,7 @@ import java.sql.Statement;
 import java.text.NumberFormat;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
+import java.util.TimeZone;
 import java.util.HashSet;
 import java.util.Iterator;
 
@@ -97,10 +98,11 @@ public class Aggregator extends Thread {
 			return;
 		}
 		
-		Calendar currTime = new GregorianCalendar();
+		// gerhard: use UTC (GMT) as time zone for table names
+		Calendar currTime = new GregorianCalendar(TimeZone.getTimeZone("GMT+00:00"));
 		int day = 0;
 		
-		System.out.println("StartTime Aggregator: " + currTime.getTime());
+		System.out.println("StartTime Aggregator: " +  new GregorianCalendar().getTime());
 		
 		//use last midnight as reference point
 		currTime.set(Calendar.HOUR, 0);
@@ -211,7 +213,7 @@ public class Aggregator extends Thread {
 			half = "0";
 		}
 		
-		Calendar tableTime = new GregorianCalendar();
+		Calendar tableTime = new GregorianCalendar(TimeZone.getTimeZone("GMT+00:00"));
 		
 		if (isHourTable) {
 			
@@ -313,7 +315,7 @@ public class Aggregator extends Thread {
 			half = "0";
 		}
 			
-		Calendar tableTime = new GregorianCalendar();
+		Calendar tableTime = new GregorianCalendar(TimeZone.getTimeZone("GMT+00:00"));
 		
 		if (isHourTable) {
 			
@@ -426,7 +428,7 @@ public class Aggregator extends Thread {
 			
 		
 		
-		Calendar tableTime = new GregorianCalendar();
+		Calendar tableTime = new GregorianCalendar(TimeZone.getTimeZone("GMT+00:00"));
 		
 		if (isHourTable) {
 			
@@ -538,7 +540,7 @@ public class Aggregator extends Thread {
 			
 		
 		
-		Calendar tableTime = new GregorianCalendar();
+		Calendar tableTime = new GregorianCalendar(TimeZone.getTimeZone("GMT+00:00"));
 		
 		if (isHourTable) {
 			
@@ -650,7 +652,7 @@ public class Aggregator extends Thread {
 			
 		
 		
-		Calendar tableTime = new GregorianCalendar();
+		Calendar tableTime = new GregorianCalendar(TimeZone.getTimeZone("GMT+00:00"));
 		
 		if (isHourTable) {
 			

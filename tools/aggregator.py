@@ -37,7 +37,7 @@ def erzeugeTagestabelle (day): #day enthält das Datum des zu bearbeitenden Tage
 
     
     tagestabelle='d_'+day
-    mysql.execute ('show tables like \''+ 'h_'+ day +'%\';')
+    mysql.execute ('show tables like \'h\\_'+ day +'%\';')
     tabellen=mysql.fetchall()
     if tabellen:
         mysql.execute('create table IF NOT EXISTS '+tagestabelle+'_tmp   (srcIP integer(10) unsigned,\
@@ -75,7 +75,7 @@ def erzeugeTagestabelle (day): #day enthält das Datum des zu bearbeitenden Tage
 def erzeugeWochentabelle (year,month,day):
     
     def leseEin (monday_year,monday_month,monday_day): #Speichern aller Tabellen der Woche in einer Zwischenliste
-        mysql.execute ('show tables like \'d_%\';')
+        mysql.execute ('show tables like \'d\\_%\';')
         tabellen=mysql.fetchall()
         sonntag=time.gmtime(time.mktime([monday_year, monday_month, monday_day,0,0,0,0,0,0])+518400) #518400 sek von Montag bis Sonntag morgen
         geloescht=0
