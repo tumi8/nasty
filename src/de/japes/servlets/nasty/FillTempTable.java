@@ -243,7 +243,7 @@ public class FillTempTable implements Runnable {
     boolean dayTable = false;
     boolean weekTable = false;
 		
-    Calendar tableTime = new GregorianCalendar(TimeZone.getTimeZone("GMT+00:00"));
+    Calendar tableTime = new GregorianCalendar(TimeZone.getTimeZone("UTC"));
 		
     // the SQL-statement to get the names of the available tables in source database
     statement = "SHOW TABLES LIKE '_\\_%'";
