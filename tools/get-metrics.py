@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Export von Zeitreihen aus NASTY-Tabellen
 # erstellt von Gerhard Muenz, August 2007
@@ -75,13 +75,17 @@ def query_metrics(user, host, password, database, interval, scale, addr, mask, p
 		else:
 			countstr='COUNT(*)'
 
-                c.execute(\
-                            'SELECT t1.i, t1.sb'+scale+', t2.sb'+scale+', t1.sp'+scale+', t2.sp'+scale+', t1.sr'+scale+', t2.sr'+scale+' FROM ('+\
-                            'SELECT (firstSwitched DIV '+interval+')*'+interval+' AS i, SUM(bytes) AS sb, SUM(pkts) AS sp, '+countstr+' AS sr FROM '+table+filter1+' GROUP BY (firstSwitched DIV '+interval+')'+\
-                            ') AS t1 JOIN ('+\
-                            'SELECT (firstSwitched DIV '+interval+')*'+interval+' AS i, SUM(bytes) AS sb, SUM(pkts) AS sp, '+countstr+' AS sr FROM '+table+filter2+' GROUP BY (firstSwitched DIV '+interval+')'+\
-                            ') AS t2 ON t1.i=t2.i'\
-                                )
+		if filter1==filter2:
+			# out and in traffic is the same	
+			c.execute('SELECT (firstSwitched DIV '+interval+')*'+interval+', SUM(bytes)'+scale+', SUM(bytes)'+scale+', SUM(pkts)'+scale+', SUM(pkts)'+scale+', '+countstr+scale+', '+countstr+scale+' FROM '+table+filter1+' GROUP BY (firstSwitched DIV '+interval+')')
+		else:
+			c.execute(\
+				    'SELECT t1.i, t1.sb'+scale+', t2.sb'+scale+', t1.sp'+scale+', t2.sp'+scale+', t1.sr'+scale+', t2.sr'+scale+' FROM ('+\
+				    'SELECT (firstSwitched DIV '+interval+')*'+interval+' AS i, SUM(bytes) AS sb, SUM(pkts) AS sp, '+countstr+' AS sr FROM '+table+filter1+' GROUP BY (firstSwitched DIV '+interval+')'+\
+				    ') AS t1 JOIN ('+\
+				    'SELECT (firstSwitched DIV '+interval+')*'+interval+' AS i, SUM(bytes) AS sb, SUM(pkts) AS sp, '+countstr+' AS sr FROM '+table+filter2+' GROUP BY (firstSwitched DIV '+interval+')'+\
+				    ') AS t2 ON t1.i=t2.i'\
+					)
 
 		for row in c.fetchall():
 			if topas:
