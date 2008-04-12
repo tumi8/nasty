@@ -243,7 +243,7 @@ def usage():
         -u, --user=         Benutzername
         -p, --password=     Passwort
         Zeitintervaloptionen:
-        -T, --time=         Startzeit (in UTC-Sekunden)
+        -T, --time=         Startzeit (in Unix-Sekunden)
         -I, --interval=     Intervalllaenge
         -L, --length=       Anzahl zu untersuchender Intervalle
         Filteroptionen:
