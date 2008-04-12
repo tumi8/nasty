@@ -30,9 +30,9 @@ def insert (src_start_str, src_end_str, dst_start_str, typ):
                            int(dst_start_str[11:13]), int(dst_start_str[13:15]),0,0,-1]))
     dst_end=dst_start+src_end-src_start
 
-    print('Startzeit UCT: '+time.asctime(time.gmtime(src_start))+' Localtime: '+time.asctime(time.localtime(src_start)))
-    print('Endzeit UCT: '+time.asctime(time.gmtime(src_end))+' Localtime: '+time.asctime(time.localtime(src_end)))
-    print('Zielzeit UCT: '+time.asctime(time.gmtime(dst_start))+' Localtime: '+time.asctime(time.localtime(dst_start)))
+    print('Startzeit UTC: '+time.asctime(time.gmtime(src_start))+' Ortszeit: '+time.asctime(time.localtime(src_start)))
+    print('Endzeit UTC: '+time.asctime(time.gmtime(src_end))+' Ortszeit: '+time.asctime(time.localtime(src_end)))
+    print('Zielzeit UTC: '+time.asctime(time.gmtime(dst_start))+' Ortszeit: '+time.asctime(time.localtime(dst_start)))
 
     mysql.execute('show tables like \''+typ+'\\_%\';')
     tabellen=mysql.fetchall()
