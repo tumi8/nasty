@@ -6,7 +6,7 @@
 
 import MySQLdb, getopt, os, sys, string, calendar, time
 
-def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, filterdirection):
+def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, srcendpoint, dstendpoint):
         def ip2int(adresse):
         # konvertiert eine IP im dotted-quad Format in einen Integer
                 adresse=adresse.split('.')
@@ -17,7 +17,7 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, fil
         # konvertiert einen Integer in eine IP im dotted-quad Format
                 return str(i//2**24)+"."+str((i//2**16)%256)+"."+str((i//2**8)%256)+"."+str(i%256)
 
-        def filter2where(src_or_dst, addr, mask, port, proto):
+        def filter2where(src_or_dst, addr, mask, port):
         # generiert einen WHERE-Ausdruck für den Filter (src_or_dst muss "src" oder "dst" sein)
                 bitmask = ['0x00000000', '0x80000000', '0xC0000000', '0xE0000000', \
                         '0xF0000000', '0xF8000000', '0xFC000000', '0xFE000000', \
@@ -43,10 +43,6 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, fil
                                 result = result + ' AND '
                         result=result+src_or_dst+'Port='+port
                         needand = True
-                if proto != '':
-                        if needand:
-                                result = result + ' AND '
-                        result = result+'proto='+proto
                 return result+')'
 
 	def time2tables(starttime, interval, length):
@@ -60,25 +56,34 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, fil
 				tables.append(row[0])
                 return tables
 
-	def getselectstr(table, colnames, wheres, other):
-		result = "SELECT "
-		isfirst = True
-		for col in colnames:
-			if isfirst:
-				result += col
-				isfirst = False
+	def getselectstr(tables, colnames, wheres, other):
+		result = ""
+		isfirsttable = True
+		for t in tables:
+			if isfirsttable:
+				result += "(SELECT "
+				isfirsttable = False
 			else:
-				result += ", "+col
-		result += " FROM "+table
-		isfirst = True
-		for w in wheres:
-			if isfirst:
-				result += " WHERE ("+w+")"
-				isfirst = False
-			else:
-				result += " AND ("+w+")"
-		if other != "":
-			result += " "+other
+				result += " UNION\n(SELECT "
+			isfirst = True
+			for col in colnames:
+				if isfirst:
+					result += col
+					isfirst = False
+				else:
+					result += ", "+col
+			result += " FROM "+t
+			isfirst = True
+			for w in wheres:
+				if w != '':
+					if isfirst:
+						result += " WHERE ("+w+")"
+						isfirst = False
+					else:
+						result += " AND ("+w+")"
+			if other != "":
+				result += " "+other
+			result += ")"
 		return result
 		
 	def printresult(result, colnames, ipcols):
@@ -105,7 +110,7 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, fil
 		return
 	else:
 		print('Relevante Tabellen für '+str(starttime)+'<=firstSwitched<='+str(starttime+interval*length)+':')
-		tablesstr = ''
+		tablesstr = '  '
 		for t in tables:
 			tablesstr = tablesstr + t + " "
 		print(tablesstr)
@@ -113,85 +118,116 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, fil
 
 	timecol = "(firstSwitched DIV "+str(interval)+")*"+str(interval)+" AS time"
 	timecond = "HAVING time BETWEEN "+str(starttime)+" AND "+str(starttime+interval*length-1)
-	filter = ''
+	filter = ""
+	protofilter = ""
+	srcfilter = ""
+	dstfilter = ""
 
-	if addr != "" or port != "" or proto != "":
-		print('Filter:')
+	print('Filter:')
+	if addr != "" or port != "":
 		if addr != "":
-			print(filterdirection+"IP: "+addr+"/"+str(mask))
+			print("  IP-Adresse  "+addr+"/"+str(mask))
 		if port != "":
-			print(filterdirection+"Port:       "+port)
-		if proto != "":
-			print("Protokoll:  "+proto)
-		print('')
-		if filterdirection == '':
-			filter = filter2where("dst", addr, mask, port, proto)+" OR "+filter2where("src", addr, mask, port, proto)
-		else:
-			filter = filter2where(filterdirection, addr, mask, port, proto)
+			print("  Port:       "+port)
+		filter = filter2where("dst", addr, mask, port)+" OR "+filter2where("src", addr, mask, port)
+	if proto != "":
+		print("  Protokoll:  "+proto)
+		protofilter = "proto="+proto
+	if srcendpoint != []:
+		print("  Quelle:     "+srcendpoint[0]+":"+srcendpoint[1])
+		srcfilter = filter2where("src", srcendpoint[0], 32, srcendpoint[1])
+	if dstendpoint != []:
+		print("  Ziel:       "+dstendpoint[0]+":"+dstendpoint[1])
+		dstfilter = filter2where("dst", dstendpoint[0], 32, dstendpoint[1])
+	print('')
 
 	if hitter == []:
 		columns = [timecol, "SUM(bytes)", "SUM(pkts)", "COUNT(*)", "COUNT(DISTINCT srcIp, dstIp)", "COUNT(DISTINCT srcPort, dstPort)", "AVG(lastSwitched-firstSwitched)"]
 		colnames = ["Time      ", "Bytes", "Pkts", "Flows", "IPs", "Ports", "Duration"]
-		query = getselectstr(tables[0], columns, [filter], "GROUP BY time "+timecond)
+		print('Zeitreihenwerte:')
+		query = getselectstr(tables, columns, [filter, protofilter, srcfilter, dstfilter], "GROUP BY time "+timecond)
 		print(query)
 		c.execute(query)
 		printresult(c.fetchall(), colnames, [])
 	else:
-		skipdistinctports = False
-		skipdistinctips = False
-		if hitter[1] == filterdirection and port != '' and proto != '':
-			skipdistinctports = True
-		if hitter[1] == filterdirection and addr != '' and mask == 32:
-			skipdistinctips = True
+		columns = [timecol, hitter[0], "SUM(bytes) AS sb", "SUM(pkts) AS sp", "COUNT(*) AS c", "COUNT(DISTINCT "+hitter[1]+"Ip) AS di", "COUNT(DISTINCT "+hitter[1]+"Port) AS dp", "AVG(lastSwitched-firstSwitched)"]
 		if hitter[0][3:5] == "Ip":
 			ipcols = [1]
+			colnames = ["Time      ", hitter[0]+"    ", "Bytes", "Pkts", "Flows", "DstIPs", "DstPorts", "Duration"]
 		else:
 			ipcols = []
+			colnames = ["Time      ", hitter[0], "Bytes", "Pkts", "Flows", "DstIPs", "DstPorts", "Duration"]
 
-		columns = [timecol, hitter[0], "SUM(bytes) AS sb", "SUM(pkts) AS sp", "COUNT(*) AS c", "COUNT(DISTINCT "+hitter[1]+"Ip) AS di", "COUNT(DISTINCT "+hitter[1]+"Port) AS dp", "AVG(lastSwitched-firstSwitched)"]
-		colnames = ["Time      ", hitter[0], "Bytes", "Pkts", "Flows", "DstIPs", "DstPorts", "Duration"]
+		skipdistinctports = False
+		skipdistinctips = False
+		singlequery = False
+		if hitter[0][0:3] == "src":
+			if srcendpoint != []:
+				if (hitter[0]=="srcIp" and srcendpoint[0]!='') or (hitter[0]=="srcPort" and srcendpoint[1]!=''):
+					singlequery = True
+			if dstendpoint != []:
+				if dstendpoint[0] != '':
+					skipdistinctips = True
+				if dstendpoint[1] != '':
+					skipdistinctports = True
+		if hitter[0][0:3] == "dst":
+			if dstendpoint != []:
+				if (hitter[0]=="dstIp" and dstendpoint[0]!='') or (hitter[0]=="dstPort" and dstendpoint[1]!=''):
+					singlequery = True
+			if srcendpoint != []:
+				if srcendpoint[0] != '':
+					skipdistinctips = True
+				if srcendpoint[1] != '':
+					skipdistinctports = True
 
-		query = getselectstr(tables[0], columns, [filter], "GROUP BY time, "+hitter[0]+" "+timecond+" ORDER BY sb DESC LIMIT 10")
+
+		if singlequery:
+			print("Filter ermöglichen maximal eine Zeile je Zeitintervall:")
+			query = getselectstr(tables, columns, [filter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)
+			print(query)
+			c.execute(query)
+			printresult(c.fetchall(), colnames, ipcols)
+			return
+
 		print("Heavy-Hitters: "+hitter[0]+" mit meisten Bytes")
+		query = getselectstr(tables, columns, [filter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)+" ORDER BY sb DESC LIMIT 10"
 		print(query)
 		c.execute(query)
 		printresult(c.fetchall(), colnames, ipcols)
-	
-		query = getselectstr(tables[0], columns, [filter], "GROUP BY time, "+hitter[0]+" "+timecond+" ORDER BY sp DESC LIMIT 10")
 		print('')
+
 		print("Heavy-Hitters: "+hitter[0]+" mit meisten Paketen")
+		query = getselectstr(tables, columns, [filter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)+" ORDER BY sp DESC LIMIT 10"
 		print(query)
 		c.execute(query)
 		printresult(c.fetchall(), colnames, ipcols)
-	
-		query = getselectstr(tables[0], columns, [filter], "GROUP BY time, "+hitter[0]+" "+timecond+" ORDER BY c DESC LIMIT 10")
 		print('')
+
 		print("Heavy-Hitters: "+hitter[0]+" mit meisten Flows")
+		query = getselectstr(tables, columns, [filter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)+" ORDER BY c DESC LIMIT 10"
 		print(query)
 		c.execute(query)
 		printresult(c.fetchall(), colnames, ipcols)
+		print('')
 
 		if skipdistinctips == False:
-			query = getselectstr(tables[0], columns, [filter], "GROUP BY time, "+hitter[0]+" "+timecond+" ORDER BY di DESC LIMIT 10")
-			print('')
 			print("Heavy-Hitters: "+hitter[0]+" mit meisten "+hitter[1]+"Ips")
+			query = getselectstr(tables, columns, [filter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)+" ORDER BY di DESC LIMIT 10"
 			print(query)
 			c.execute(query)
 			printresult(c.fetchall(), colnames, ipcols)
 		else:
-			print('')
-			print(filterdirection+"IP-Filter gesetzt, ueberspringe "+hitter[0]+" mit meisten "+hitter[1]+"Ips")
+			print(hitter[1]+"IP-Filter gesetzt, ueberspringe "+hitter[0]+" mit meisten "+hitter[1]+"Ips")
+		print('')
 
 		if skipdistinctports == False:
-			query = getselectstr(tables[0], columns, [filter], "GROUP BY time, "+hitter[0]+" "+timecond+" ORDER BY dp DESC LIMIT 10")
-			print('')
 			print("Heavy-Hitters: "+hitter[0]+" mit meisten "+hitter[1]+"Ports")
+			query = getselectstr(tables, columns, [filter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)+" ORDER BY dp DESC LIMIT 10"
 			print(query)
 			c.execute(query)
 			printresult(c.fetchall(), colnames, ipcols)
 		else:
-			print('')
-			print(filterdirection+"Port-Filter gesetzt, ueberspringe "+hitter[0]+" mit meisten "+hitter[1]+"Ips")
+			print(hitter[1]+"Port-Filter gesetzt, ueberspringe "+hitter[0]+" mit meisten "+hitter[1]+"Ips")
 	return
     
 
@@ -211,11 +247,12 @@ def usage():
         -I, --interval=     Intervalllaenge
         -L, --length=       Anzahl zu untersuchender Intervalle
         Filteroptionen:
-        -A, --address=      IP-Adresse
+        -A, --address=      IP-Adresse (Quelle oder Ziel muss uebereinstimmen)
         -M, --mask=         Adressmaske
-        -P, --port=         Port
+        -P, --port=         Port (Quelle oder Ziel muss uebereinstimmen)
         -R, --protocol=     Protokoll
-	-S|-D, --src|--dst  Filter nur auf Quelle/Ziel anwenden
+	-S, --src=          Quell-Endpunkt in der Form "A.B.C.D:Port" ("*"=Wildcard für Adresse/Port)
+	-D, --dst=          Ziel-Endpunkt in der Form "A.B.C.D:Port" ("*"=Wildcard für Adresse/Port)
         Ausgabeoptionen	:
 	-H, --hitters=      Heavy-Hitter-Statistik fuer "srcIp", "dstIp", "srcPort" oder "dstPort"''')
 
@@ -233,10 +270,11 @@ def main():
         port=''
         proto=''
 	hitter=[]
-	filterdirection=''
+	srcendpoint=[]
+	dstendpoint=[]
 
         try:
-                opts, args = getopt.gnu_getopt(sys.argv[1:], "u:h:p:d:T:I:L:A:M:P:R:H:SD", ["user=", "host=", "password=", "database=", "time=", "interval=", "length=", "address=", "mask=", "port=", "protocol=", "hitters=", "src", "dst"])
+                opts, args = getopt.gnu_getopt(sys.argv[1:], "u:h:p:d:T:I:L:A:M:P:R:H:S:D:", ["user=", "host=", "password=", "database=", "time=", "interval=", "length=", "address=", "mask=", "port=", "protocol=", "hitters=", "src=", "dst="])
         except getopt.GetoptError:
                 print "Ungueltige Option."
                 usage()
@@ -275,9 +313,18 @@ def main():
 			elif string.lower(a) == "srcport":
 				hitter = ["srcPort", "dst"]
                 if o in ("-S", "--src"):
-                        filterdirection="src"
+			srcendpoint=a.split(':')
+			if srcendpoint[0]=='*':
+				srcendpoint[0]=''
+			if len(srcendpoint)==1:
+				srcendpoint.append('')
                 if o in ("-D", "--dst"):
-                        filterdirection="dst"
+			dstendpoint=a.split(':')
+			dstendpoint=a.split(':')
+			if dstendpoint[0]=='*':
+				dstendpoint[0]=''
+			if len(dstendpoint)==1:
+				dstendpoint.append('')
 
 	if interval<1 or starttime<0 or length<1:
 		print('Startzeit, Interval und Länge müssen positiv sein')
@@ -291,7 +338,7 @@ def main():
 			print ('%d: Konnte nicht mit Datenbank verbinden: %s' % (message[0], message[1]))
 			return
 		c = connection.cursor()
-                inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, filterdirection)
+                inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, srcendpoint, dstendpoint)
         else:
                 usage()
 
