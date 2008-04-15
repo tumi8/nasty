@@ -150,13 +150,13 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, src
 		c.execute(query)
 		printresult(c.fetchall(), colnames, [])
 	else:
-		columns = [timecol, hitter[0], "SUM(bytes) AS sb", "SUM(pkts) AS sp", "COUNT(*) AS c", "COUNT(DISTINCT "+hitter[1]+"Ip) AS di", "COUNT(DISTINCT "+hitter[1]+"Port) AS dp", "AVG(lastSwitched-firstSwitched)"]
+		columns = [timecol, hitter[0], "SUM(bytes) AS sb", "SUM(pkts) AS sp", "COUNT(*) AS c", "COUNT(DISTINCT "+hitter[1]+"Ip) AS di", "COUNT(DISTINCT "+hitter[1]+"Port) AS dp", "AVG(lastSwitched-firstSwitched) AS d"]
 		if hitter[0][3:5] == "Ip":
 			ipcols = [1]
-			colnames = ["Time      ", hitter[0]+"    ", "Bytes", "Pkts", "Flows", "DstIPs", "DstPorts", "Duration"]
+			colnames = ["Time      ", hitter[0]+"    ", "Bytes", "Pkts", "Flows", hitter[1]+"IPs", hitter[1]+"Ports", "Duration"]
 		else:
 			ipcols = []
-			colnames = ["Time      ", hitter[0], "Bytes", "Pkts", "Flows", "DstIPs", "DstPorts", "Duration"]
+			colnames = ["Time      ", hitter[0], "Bytes", "Pkts", "Flows", hitter[1]+"IPs", hitter[1]+"Ports", "Duration"]
 
 		skipdistinctports = False
 		skipdistinctips = False
