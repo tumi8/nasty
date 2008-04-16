@@ -89,22 +89,31 @@ def query_metrics(user, host, password, database, interval, scale, addr, mask, p
 
 		for row in c.fetchall():
 			if topas:
-				# print empty intervals if necessary
-				if earliest != 0:
+				if earliest == 0:
+					# initialize interval counter
+					i = 0
+					earliest = row[0]
+				else:
+					# increase interval counter and fill in zero rows if necessary
 					i = i + 1
 					while i < (row[0]-earliest) / string.atoi(interval):
 						print('--- '+str(i))
 						i = i + 1
-					    
+				# print current row
 				print(addr+':'+port+'|'+proto+'_'+str(row[4])+' '+str(row[3])+' '+str(row[2])+' '+str(row[1])+' '+str(row[6])+' '+str(row[5]))
-
+				print('--- '+str(i))
+			else:
 				if earliest == 0:
+					# initialize interval counter
 					i = 0
-					print('--- 0')
 					earliest = row[0]
 				else:
-					print('--- '+str(i))
-			else:
+					# increase interval counter and fill in zero rows if necessary
+					i = i + 1
+					while i < (row[0]-earliest) / string.atoi(interval):
+						print(str(earliest + i*interval) + '\t0\t0\t0\t0\t0\t0')
+						i = i + 1
+				# print current row
 				print(str(row[0])+'\t'+str(row[1])+'\t'+str(row[2])+'\t'+str(row[3])+'\t'+str(row[4])+'\t'+str(row[5])+'\t'+str(row[6]))
 
         return
