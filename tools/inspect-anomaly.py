@@ -142,21 +142,29 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, src
 	print('')
 
 	if hitter == []:
-		columns = [timecol, "SUM(bytes)", "SUM(pkts)", "COUNT(*)", "COUNT(DISTINCT srcIp, dstIp)", "COUNT(DISTINCT srcPort, dstPort)", "AVG(lastSwitched-firstSwitched)"]
-		colnames = ["Time      ", "Bytes", "Pkts", "Flows", "IPs", "Ports", "Duration"]
+		if proto == "1":
+			columns = [timecol, "SUM(bytes)", "SUM(pkts)", "COUNT(*)", "COUNT(DISTINCT srcIp, dstIp)", "AVG(lastSwitched-firstSwitched)"]
+			colnames = ["Time      ", "Bytes", "Pkts", "Flows", "IPs", "Duration"]
+		else:
+			columns = [timecol, "SUM(bytes)", "SUM(pkts)", "COUNT(*)", "COUNT(DISTINCT srcIp, dstIp)", "COUNT(DISTINCT srcPort, dstPort)", "AVG(lastSwitched-firstSwitched)"]
+			colnames = ["Time      ", "Bytes", "Pkts", "Flows", "IPs", "Ports", "Duration"]
 		print('Zeitreihenwerte:')
 		query = getselectstr(tables, columns, [filter, protofilter, srcfilter, dstfilter], "GROUP BY time "+timecond)
 		print(query)
 		c.execute(query)
 		printresult(c.fetchall(), colnames, [])
 	else:
-		columns = [timecol, hitter[0], "SUM(bytes) AS sb", "SUM(pkts) AS sp", "COUNT(*) AS c", "COUNT(DISTINCT "+hitter[1]+"Ip) AS di", "COUNT(DISTINCT "+hitter[1]+"Port) AS dp", "AVG(lastSwitched-firstSwitched) AS d"]
+		if proto == "1":
+			columns = [timecol, hitter[0], "SUM(bytes) AS sb", "SUM(pkts) AS sp", "COUNT(*) AS c", "COUNT(DISTINCT "+hitter[1]+"Ip) AS di", "AVG(lastSwitched-firstSwitched) AS d"]
+			colnames = ["Time      ", hitter[0], "Bytes", "Pkts", "Flows", hitter[1]+"IPs", "Duration"]
+		else:
+			columns = [timecol, hitter[0], "SUM(bytes) AS sb", "SUM(pkts) AS sp", "COUNT(*) AS c", "COUNT(DISTINCT "+hitter[1]+"Ip) AS di", "COUNT(DISTINCT "+hitter[1]+"Port) AS dp", "AVG(lastSwitched-firstSwitched) AS d"]
+			colnames = ["Time      ", hitter[0], "Bytes", "Pkts", "Flows", hitter[1]+"IPs", hitter[1]+"Ports", "Duration"]
 		if hitter[0][3:5] == "Ip":
 			ipcols = [1]
-			colnames = ["Time      ", hitter[0]+"    ", "Bytes", "Pkts", "Flows", hitter[1]+"IPs", hitter[1]+"Ports", "Duration"]
+			colnames[1] = colnames[1]+"    "
 		else:
 			ipcols = []
-			colnames = ["Time      ", hitter[0], "Bytes", "Pkts", "Flows", hitter[1]+"IPs", hitter[1]+"Ports", "Duration"]
 
 		skipdistinctports = False
 		skipdistinctips = False
@@ -179,7 +187,8 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, src
 					skipdistinctips = True
 				if srcendpoint[1] != '':
 					skipdistinctports = True
-
+		if proto == "1":
+			skipdistinctports = True
 
 		if singlequery:
 			print("Filter ermöglichen maximal eine Zeile je Zeitintervall:")
@@ -227,12 +236,8 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, src
 			c.execute(query)
 			printresult(c.fetchall(), colnames, ipcols)
 		else:
-			print(hitter[1]+"Port-Filter gesetzt, ueberspringe "+hitter[0]+" mit meisten "+hitter[1]+"Ips")
+			print(hitter[1]+"Port-Filter gesetzt oder Protokoll=ICMP, ueberspringe "+hitter[0]+" mit meisten "+hitter[1]+"Ips")
 	return
-    
-
-
-        
     
 
 def usage():
