@@ -131,7 +131,7 @@ def findhosts(c, starttime, endtime, addr, mask, proto):
 
 	columns = ["srcIp", "FROM_UNIXTIME(MIN(firstSwitched))", "FROM_UNIXTIME(MAX(lastSwitched))", "SUM(pkts)", "SUM(bytes)", "COUNT(*)"]
 	colnames = ["SrcIP    ", "FirstSeen         ", "LastSeen         ", "Bytes", "Pkts", "Flows"]
-	query = getselectstr(tables, columns, [filter, protofilter], "GROUP BY srcIp ORDER BY srcIp")
+	query = "SELECT * FROM (\n"+getselectstr(tables, columns, [filter, protofilter], "GROUP BY srcIp")+"\n) AS result GROUP BY srcIp ORDER BY srcIp"
 	print(query)
 	c.execute(query)
 	printresult(c.fetchall(), colnames, [0])
@@ -149,7 +149,7 @@ def usage():
         -S, --start=        Startzeit YYYYMMDDhhmm (Default: now-30min)
         -E, --end=          Endzeit YYYYMMDDhhmm (Default: now)
         Filteroptionen:
-        -A, --address=      IP-Adresse (Quelle oder Ziel muss uebereinstimmen)
+        -A, --address=      Quell-IP-Adresse
         -M, --mask=         Adressmaske
         -R, --protocol=     Protokoll''')
 
