@@ -118,18 +118,19 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, src
 
 	timecol = "(firstSwitched DIV "+str(interval)+")*"+str(interval)+" AS time"
 	timecond = "HAVING time BETWEEN "+str(starttime)+" AND "+str(starttime+interval*length-1)
-	filter = ""
+	ipfilter = ""
+	portfilter = ""
 	protofilter = ""
 	srcfilter = ""
 	dstfilter = ""
 
 	print('Filter:')
-	if addr != "" or port != "":
-		if addr != "":
-			print("  IP-Adresse  "+addr+"/"+str(mask))
-		if port != "":
-			print("  Port:       "+port)
-		filter = filter2where("dst", addr, mask, port)+" OR "+filter2where("src", addr, mask, port)
+	if addr != "":
+		print("  IP-Adresse  "+addr+"/"+str(mask))
+		ipfilter = filter2where("dst", addr, mask, "")+" OR "+filter2where("src", addr, mask, "")
+	if port != "":
+		print("  Port:       "+port)
+		portfilter = filter2where("dst", "", 0, port)+" OR "+filter2where("src", "", 0, port)
 	if proto != "":
 		print("  Protokoll:  "+proto)
 		protofilter = "proto="+proto
@@ -149,7 +150,7 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, src
 			columns = [timecol, "SUM(bytes)", "SUM(pkts)", "COUNT(*)", "COUNT(DISTINCT srcIp, dstIp)", "COUNT(DISTINCT srcPort, dstPort)", "AVG(lastSwitched-firstSwitched)"]
 			colnames = ["Time      ", "Bytes", "Pkts", "Flows", "IPs", "Ports", "Duration"]
 		print('Zeitreihenwerte:')
-		query = getselectstr(tables, columns, [filter, protofilter, srcfilter, dstfilter], "GROUP BY time "+timecond)
+		query = getselectstr(tables, columns, [ipfilter, portfilter, protofilter, srcfilter, dstfilter], "GROUP BY time "+timecond)
 		print(query)
 		c.execute(query)
 		printresult(c.fetchall(), colnames, [])
@@ -192,28 +193,28 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, src
 
 		if singlequery:
 			print("Filter ermöglichen maximal eine Zeile je Zeitintervall:")
-			query = getselectstr(tables, columns, [filter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)
+			query = getselectstr(tables, columns, [ipfilter, portfilter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)
 			print(query)
 			c.execute(query)
 			printresult(c.fetchall(), colnames, ipcols)
 			return
 
 		print("Heavy-Hitters: "+hitter[0]+" mit meisten Bytes")
-		query = getselectstr(tables, columns, [filter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)+" ORDER BY sb DESC LIMIT 10"
+		query = getselectstr(tables, columns, [ipfilter, portfilter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)+" ORDER BY sb DESC LIMIT 10"
 		print(query)
 		c.execute(query)
 		printresult(c.fetchall(), colnames, ipcols)
 		print('')
 
 		print("Heavy-Hitters: "+hitter[0]+" mit meisten Paketen")
-		query = getselectstr(tables, columns, [filter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)+" ORDER BY sp DESC LIMIT 10"
+		query = getselectstr(tables, columns, [ipfilter, portfilter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)+" ORDER BY sp DESC LIMIT 10"
 		print(query)
 		c.execute(query)
 		printresult(c.fetchall(), colnames, ipcols)
 		print('')
 
 		print("Heavy-Hitters: "+hitter[0]+" mit meisten Flows")
-		query = getselectstr(tables, columns, [filter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)+" ORDER BY c DESC LIMIT 10"
+		query = getselectstr(tables, columns, [ipfilter, portfilter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)+" ORDER BY c DESC LIMIT 10"
 		print(query)
 		c.execute(query)
 		printresult(c.fetchall(), colnames, ipcols)
@@ -221,7 +222,7 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, src
 
 		if skipdistinctips == False:
 			print("Heavy-Hitters: "+hitter[0]+" mit meisten "+hitter[1]+"Ips")
-			query = getselectstr(tables, columns, [filter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)+" ORDER BY di DESC LIMIT 10"
+			query = getselectstr(tables, columns, [ipfilter, portfilter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)+" ORDER BY di DESC LIMIT 10"
 			print(query)
 			c.execute(query)
 			printresult(c.fetchall(), colnames, ipcols)
@@ -231,7 +232,7 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, src
 
 		if skipdistinctports == False:
 			print("Heavy-Hitters: "+hitter[0]+" mit meisten "+hitter[1]+"Ports")
-			query = getselectstr(tables, columns, [filter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)+" ORDER BY dp DESC LIMIT 10"
+			query = getselectstr(tables, columns, [ipfilter, portfilter, protofilter, srcfilter, dstfilter], "GROUP BY time, "+hitter[0]+" "+timecond)+" ORDER BY dp DESC LIMIT 10"
 			print(query)
 			c.execute(query)
 			printresult(c.fetchall(), colnames, ipcols)

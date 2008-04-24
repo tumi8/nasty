@@ -134,7 +134,8 @@ def usage():
         -P, --port=                             Port
         -R, --protocol=                         Protokoll
         -T, --topas                             Ausgabe fuer Topas-Stat-Modul
-        -D, --distinct                          Nur verschiedene (DISTINCT) IP-5-Tupel zaehlen''')
+        -D, --distinct                          Nur verschiedene (DISTINCT) IP-5-Tupel zaehlen
+	Bemerkung: Adress- und Portfilter beziehen sich auf denselben Endpunkt eines Flows.''')
     print ('''Ausgabe:
 	 Intervallstartzeit, bytes_out, bytes_in, pkts_out, pkts_in, rcds_out, rcds_in''')
 
