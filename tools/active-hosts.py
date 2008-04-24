@@ -129,9 +129,9 @@ def findhosts(c, starttime, endtime, addr, mask, proto):
 		protofilter = "proto="+proto
 	print('')
 
-	columns = ["srcIp", "FROM_UNIXTIME(MIN(firstSwitched))", "FROM_UNIXTIME(MAX(lastSwitched))", "SUM(pkts)", "SUM(bytes)", "COUNT(*)"]
+	columns = ["srcIp", "MIN(firstSwitched) AS first", "MAX(lastSwitched) AS last", "SUM(bytes) AS sb", "SUM(pkts) AS sp", "COUNT(*) AS c"]
 	colnames = ["SrcIP    ", "FirstSeen         ", "LastSeen         ", "Bytes", "Pkts", "Flows"]
-	query = "SELECT * FROM (\n"+getselectstr(tables, columns, [filter, protofilter], "GROUP BY srcIp")+"\n) AS result GROUP BY srcIp ORDER BY srcIp"
+	query = "SELECT srcIp, FROM_UNIXTIME(MIN(first)),  FROM_UNIXTIME(MAX(first)), SUM(sb), SUM(sp), SUM(c) FROM (\n"+getselectstr(tables, columns, [filter, protofilter], "GROUP BY srcIp")+"\n) AS result GROUP BY srcIp ORDER BY srcIp"
 	print(query)
 	c.execute(query)
 	printresult(c.fetchall(), colnames, [0])
