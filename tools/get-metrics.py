@@ -111,7 +111,7 @@ def query_metrics(user, host, password, database, interval, scale, addr, mask, p
 					# increase interval counter and fill in zero rows if necessary
 					i = i + 1
 					while i < (row[0]-earliest) / string.atoi(interval):
-						print(str(earliest + i*interval) + '\t0\t0\t0\t0\t0\t0')
+						print(str(earliest + i*string.atoi(interval)) + '\t0\t0\t0\t0\t0\t0')
 						i = i + 1
 				# print current row
 				print(str(row[0])+'\t'+str(row[1])+'\t'+str(row[2])+'\t'+str(row[3])+'\t'+str(row[4])+'\t'+str(row[5])+'\t'+str(row[6]))
