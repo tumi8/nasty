@@ -135,11 +135,11 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, src
 		print("  Protokoll:  "+proto)
 		protofilter = "proto="+proto
 	if srcendpoint != []:
-		print("  Quelle:     "+srcendpoint[0]+":"+srcendpoint[1])
-		srcfilter = filter2where("src", srcendpoint[0], 32, srcendpoint[1])
+		print("  Quelle:     "+srcendpoint[0][0]+"/"+str(srcendpoint[0][1])+":"+srcendpoint[1])
+		srcfilter = filter2where("src", srcendpoint[0][0], srcendpoint[0][1], srcendpoint[1])
 	if dstendpoint != []:
-		print("  Ziel:       "+dstendpoint[0]+":"+dstendpoint[1])
-		dstfilter = filter2where("dst", dstendpoint[0], 32, dstendpoint[1])
+		print("  Ziel:       "+dstendpoint[0][0]+"/"+str(dstendpoint[0][1])+":"+dstendpoint[1])
+		dstfilter = filter2where("dst", dstendpoint[0][0], dstendpoint[0][1], dstendpoint[1])
 	print('')
 
 	if hitter == []:
@@ -257,8 +257,8 @@ def usage():
         -M, --mask=         Adressmaske
         -P, --port=         Port (Quelle oder Ziel muss uebereinstimmen)
         -R, --protocol=     Protokoll
-	-S, --src=          Quell-Endpunkt in der Form "A.B.C.D:Port" ("*"=Wildcard für Adresse/Port)
-	-D, --dst=          Ziel-Endpunkt in der Form "A.B.C.D:Port" ("*"=Wildcard für Adresse/Port)
+	-S, --src=          Quell-Endpunkt in der Form "A.B.C.D/M:Port" ("*"=Wildcard für Adresse)
+	-D, --dst=          Ziel-Endpunkt in der Form "A.B.C.D/M:Port" ("*"=Wildcard für Adresse)
         Ausgabeoptionen	:
 	-H, --hitters=      Heavy-Hitter-Statistik fuer "srcIp", "dstIp", "srcPort" oder "dstPort"''')
 
@@ -321,14 +321,21 @@ def main():
                 if o in ("-S", "--src"):
 			srcendpoint=a.split(':')
 			if srcendpoint[0]=='*':
-				srcendpoint[0]=''
+				srcendpoint[0]=['', 32]
+			else:
+				srcendpoint[0]=srcendpoint[0].split("/")
+				if len(srcendpoint[0])==1:
+					srcendpoint[0].append(32)
 			if len(srcendpoint)==1:
 				srcendpoint.append('')
                 if o in ("-D", "--dst"):
 			dstendpoint=a.split(':')
-			dstendpoint=a.split(':')
 			if dstendpoint[0]=='*':
-				dstendpoint[0]=''
+				dstendpoint[0]=['', 32]
+			else:
+				endendpoint[0]=endendpoint[0].split("/")
+				if len(endendpoint[0])==1:
+					endendpoint[0].append(32)
 			if len(dstendpoint)==1:
 				dstendpoint.append('')
 
