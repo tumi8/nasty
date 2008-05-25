@@ -172,19 +172,19 @@ def inspect(c, starttime, interval, length, addr, mask, port, proto, hitter, src
 		singlequery = False
 		if hitter[0][0:3] == "src":
 			if srcendpoint != []:
-				if (hitter[0]=="srcIp" and srcendpoint[0]!='') or (hitter[0]=="srcPort" and srcendpoint[1]!=''):
+				if (hitter[0]=="srcIp" and srcendpoint[0][0] != '' and srcendpoint[0][1] == '32') or (hitter[0]=="srcPort" and srcendpoint[1]!=''):
 					singlequery = True
 			if dstendpoint != []:
-				if dstendpoint[0] != '':
+				if dstendpoint[0][0] != '' and dstendpoint[0][1] == '32':
 					skipdistinctips = True
 				if dstendpoint[1] != '':
 					skipdistinctports = True
 		if hitter[0][0:3] == "dst":
 			if dstendpoint != []:
-				if (hitter[0]=="dstIp" and dstendpoint[0]!='') or (hitter[0]=="dstPort" and dstendpoint[1]!=''):
+				if (hitter[0]=="dstIp" and dstendpoint[0][0] != '' and dstendpoint[0][1] == '32') or (hitter[0]=="dstPort" and dstendpoint[1]!=''):
 					singlequery = True
 			if srcendpoint != []:
-				if srcendpoint[0] != '':
+				if srcendpoint[0][0] != '' and srcendpoint[0][1] == '32':
 					skipdistinctips = True
 				if srcendpoint[1] != '':
 					skipdistinctports = True
