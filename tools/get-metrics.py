@@ -67,14 +67,15 @@ def query_metrics(user, host, password, database, interval, scale, addr, mask, p
 		if proto=='':
 			proto='-1'
 
-	earliest = 0 # this is used for topas output only
-        for table in tables:
-		# to ignore duplicate flow keys: COUNT(DISTINCT srcIp,dstIp,srcPort,dstPort,proto) instead of COUNT(*)
-		if distinct:
-			countstr='COUNT(DISTINCT srcIp,dstIp,srcPort,dstPort,proto)'
-		else:
-			countstr='COUNT(*)'
+	earliest = 0
 
+	# to ignore duplicate flow keys: COUNT(DISTINCT srcIp,dstIp,srcPort,dstPort,proto) instead of COUNT(*)
+	if distinct:
+		countstr='COUNT(DISTINCT srcIp,dstIp,srcPort,dstPort,proto)'
+	else:
+		countstr='COUNT(*)'
+
+        for table in tables:
 		if filter1==filter2:
 			# out and in traffic is the same	
 			c.execute('SELECT (firstSwitched DIV '+interval+')*'+interval+', SUM(bytes)'+scale+', SUM(bytes)'+scale+', SUM(pkts)'+scale+', SUM(pkts)'+scale+', '+countstr+scale+', '+countstr+scale+' FROM '+table+filter1+' GROUP BY (firstSwitched DIV '+interval+')')
