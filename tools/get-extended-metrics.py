@@ -5,7 +5,7 @@
 
 import MySQLdb, getopt, os, sys, string, calendar, time
 
-def query_metrics(c, starttime, endtime, interval, addr, mask, port, proto):
+def query_metrics(c, starttime, endtime, interval, addr, mask, port, proto, nasty):
         def ip2int(adresse):
         # konvertiert eine IP im dotted-quad Format in einen Integer
                 adresse=adresse.split('.')
@@ -76,7 +76,10 @@ def query_metrics(c, starttime, endtime, interval, addr, mask, port, proto):
 	
         for table in tables:
 
-		c.execute('SELECT '+timecol+', SUM(bytes), SUM(pkts), COUNT(*), (COUNT(DISTINCT dstIp) + COUNT(DISTINCT srcIp)), (COUNT(DISTINCT dstPort) + COUNT(DISTINCT srcPort)), AVG(lastSwitched-firstSwitched) FROM '+table+filter+' GROUP BY time '+timecond)
+		if nasty:
+			c.execute('SELECT '+timecol+', SUM(bytes), SUM(pkts), COUNT(*), (COUNT(DISTINCT dstIp) + COUNT(DISTINCT srcIp)), (COUNT(DISTINCT dstPort) + COUNT(DISTINCT srcPort)), AVG(lastSwitched-firstSwitched) FROM '+table+filter+' GROUP BY time '+timecond)
+		else:
+			c.execute('SELECT '+timecol+', SUM(bytes), SUM(pkts), COUNT(*), COUNT(DISTINCT srcIp), COUNT(DISTINCT dstIp), COUNT(DISTINCT srcPort), COUNT(DISTINCT dstPort), AVG(lastSwitched-firstSwitched) FROM '+table+filter+' GROUP BY time '+timecond)
 
 		for row in c.fetchall():
 			if earliest == 0:
@@ -90,7 +93,10 @@ def query_metrics(c, starttime, endtime, interval, addr, mask, port, proto):
 					print(str(earliest + i*interval) + '\t0\t0\t0\t0\t0\t0')
 					i = i + 1
 			# print current row
-			print(str(row[0])+'\t'+str(row[1])+'\t'+str(row[2])+'\t'+str(row[3])+'\t'+str(row[4])+'\t'+str(row[5])+'\t'+str(row[6]))
+			if nasty:
+				print(str(row[0])+'\t'+str(row[1])+'\t'+str(row[2])+'\t'+str(row[3])+'\t'+str(row[4])+'\t'+str(row[5])+'\t'+str(row[6]))
+			else:
+				print(str(row[0])+'\t'+str(row[1])+'\t'+str(row[2])+'\t'+str(row[3])+'\t'+str(row[4])+'\t'+str(row[5])+'\t'+str(row[6])+'\t'+str(row[7])+'\t'+str(row[8]))
 
         return
 
@@ -110,8 +116,11 @@ def usage():
         -A, --address=                          IP-Adresse
         -M, --mask=                             Adressmaske
         -P, --port=                             Port
-        -R, --protocol=                         Protokoll''')
+        -R, --protocol=                         Protokoll
+	-n, --nasty                             Ausgabe von AggregateSets wie bei Nasty''')
     print ('''Ausgabe:
+	 Intervallstartzeit, #bytes, #pkts, #records, #srcips, #dstips, #srcports, #dstports, avg_duration''')
+    print ('''Ausgabe mit Option -n:
 	 Intervallstartzeit, #bytes, #pkts, #records, #ips, #ports, avg_duration''')
 
 def main():
@@ -127,9 +136,10 @@ def main():
         interval=60
 	starttime=0
 	endtime=0
+	nasty=False
 
         try:
-                opts, args = getopt.gnu_getopt(sys.argv[1:], "u:h:p:d:I:S:E:A:M:P:R:", ["user=", "host=", "password=", "database=", "interval=", "starttime=", "endtime=", "mask=", "port=", "protocol="])
+                opts, args = getopt.gnu_getopt(sys.argv[1:], "u:h:p:d:I:S:E:A:M:P:R:n", ["user=", "host=", "password=", "database=", "interval=", "starttime=", "endtime=", "mask=", "port=", "protocol=", "nasty"])
         except getopt.GetoptError:
                 print "Ungueltige Option."
                 usage()
@@ -148,8 +158,10 @@ def main():
                         interval=string.atoi(a)
                 if o in ("-S", "--starttime"):
                         starttime=string.atoi(a)
+			starttime = (starttime//interval)*interval
                 if o in ("-E", "--endtime"):
                         endtime=string.atoi(a)
+			endtime = (endtime//interval+1)*interval
                 if o in ("-A", "--address"):
                         addr=a
                 if o in ("-M", "--mask"):
@@ -158,15 +170,12 @@ def main():
                         port=str(string.atoi(a))
                 if o in ("-R", "--protocol"):
                         proto=str(string.atoi(a))
-                if o in ("-T", "--topas"):
-                        topas=True
-                if o in ("-D", "--distinct"):
-                        distinct=True
+                if o in ("-n", "--nasty"):
+                        nasty=True
 	
 	if interval<1 or starttime<0 or endtime<0:
-		print('Startzeit, Endzeit und Interval müssen positiv sein')
+		print('Startzeit, Endzeit und Interval muessen positiv sein')
 		return
-	starttime = (starttime//interval)*interval
 
         if (database):
 		try:
@@ -175,7 +184,7 @@ def main():
 			print ('%d: Konnte nicht mit Datenbank verbinden: %s' % (message[0], message[1]))
 			return
 		c = connection.cursor()
-                query_metrics(c, starttime, endtime, interval, addr, mask, port, proto)
+                query_metrics(c, starttime, endtime, interval, addr, mask, port, proto, nasty)
         else:
                 usage()
 
