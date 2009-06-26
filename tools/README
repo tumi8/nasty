@@ -1,18 +1,23 @@
 Python Tools for NASTY database
 -------------------------------
 
+active-hosts.py
+  get all source IP addresses observed in given time interval
+
 aggregator.py
   aggregates half-hour tables to day tables and day tables to week tables
   
 insert.py
   inserts (copies) data from one table into another shifting timestamps
   
+inspect-anomaly.py
+  search for heavy hitters etc.
+
 transform.py
   transfers data from CSV tables into table (used for Omnet++ simulation output)
 
 transform-flow.py
-transform-flow-sets.py (requires set module, i.e. >=Python 2.4) 
-  transfers CSV data created by flow-export (flow-tools suite) into table
+  transfers files created by flow-tools or nfdump into database
   
 get-metrics.py
   exports time series from half-hour tables

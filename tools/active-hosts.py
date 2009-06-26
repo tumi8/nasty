@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# Inspect anomalous time intervals in NASTY tables
+# Returns all source IP addresses seen in tables
 # Gerhard Muenz, April 2008
 # -*- coding: utf-8 -*-
 
