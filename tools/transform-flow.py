@@ -18,7 +18,7 @@ def ipZuZahl(adresse):
     adresse=adresse.split('.')
     return 2**24*long(adresse[0])+2**16*long(adresse[1])+2**8*long(adresse[2])+long(adresse[3])
 
-def transform(files, user, host, password, database, format, exporter, tmpfile, bin):
+def transform(files, user, host, password, database, format, exporter, filter, tmpfile, bin):
     # get exporter table index for given exporter IP address
     # create new entry in exporter table if exporter IP address does not exist
     def exporterID(expAddr):
@@ -50,7 +50,7 @@ def transform(files, user, host, password, database, format, exporter, tmpfile, 
 		lastSwitchedMilli smallint (5) unsigned, \
 		exporterID smallint (5) unsigned)''')
 	    tables.append(t)
-	    locktables()
+	    #locktables()
 
     # connect to database
     try:
@@ -58,6 +58,13 @@ def transform(files, user, host, password, database, format, exporter, tmpfile, 
     except MySQLdb.OperationalError, message:  
 	print ('%d: Could not connect to database: %s' % (message[0], message[1]))
 	return
+
+    # create temporary file
+    if os.access(tmpfile, os.F_OK):
+	print("Cannot create temporary file "+tmpfile+". File exists!")
+	exit()
+    print("Using temporary file "+tmpfile)
+    tmpfilehandle = open(tmpfile,'w')
 
     c = connection.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS `exporter` ( \
@@ -78,17 +85,10 @@ def transform(files, user, host, password, database, format, exporter, tmpfile, 
     for row in c.fetchall():
 	tables.append(row[0])
 
-    locktables()
+    #locktables()
 
     old_tablename=''
 	   
-    # create temporary file
-    if os.access(tmpfile, os.F_OK):
-	print("Cannot create temporary file "+tmpfile+". File exists!")
-	exit()
-    print("Using temporary file "+tmpfile)
-    tmpfilehandle = open(tmpfile,'w')
-
     numberofrecords = 0;
     # for all files
     for files2 in files:
@@ -97,7 +97,10 @@ def transform(files, user, host, password, database, format, exporter, tmpfile, 
 	    if bin:
 		# open input pipe
 		if format == 1:
-		    handle = os.popen('flow-export -f2 <' + file)
+		    if filter != '':
+		    	handle = os.popen('flow-cat '+file+' | '+filter+' | flow-export -f2')
+		    else:
+		    	handle = os.popen('flow-export -f2 < '+file)
 		    # skip first line
 		    kopf = handle.readline()
 		elif format ==2:
@@ -267,7 +270,10 @@ def usage():
 	-f, --format=		file format: ft=flow-tools, nf=nfdump (default: ft)
 	-e, --exporter=		exporter IP address (default: flow-tools: value from file, nfdump: 0.0.0.0)
 	-t, --tempfile=		temporary file name (default: /tmp/transform-flows.tmp)
-	-b, --binary		binary input (requires flow-export or nfdump)''')
+	-b, --binary		binary input (requires flow-tools or nfdump)
+        -F, --filter=           optional flow-tools in the pipe between flow-cat and flow-export,
+                                only works for file format "ft" and binary input
+                                (requries flow-tools, see flow-tools man pages)''')
 
 def main():
     start=(time.time())
@@ -278,11 +284,12 @@ def main():
     database=''
     tmpfile='/tmp/transform-flows.tmp'
     format=1 # flow-tools
+    filter=''
     exporter=-1
     bin=False
 
     try:
-	opts, args = getopt.gnu_getopt(sys.argv[1:], "u:h:p:d:f:e:t:b", ["user=", "host=", "password=", "database=","format=","exporter=","tempfile=","binary"])
+	opts, args = getopt.gnu_getopt(sys.argv[1:], "u:h:p:d:f:e:t:bF:", ["user=", "host=", "password=", "database=","format=","exporter=","tempfile=","binary","filter="])
     except getopt.GetoptError:
 	print "Invalid option."
 	usage()
@@ -306,13 +313,19 @@ def main():
 	    tmpfile=a
 	if o in ("-d", "--database"):
 	    database=a
+	if o in ("-F", "--filter"):
+	    filter=a
 
     if exporter == -1 and format == 2:
 	# nfdump requires exporter value
 	exporter = 0
 
+    if filter != '' and (format != 1 or bin == False):
+	print('error: filter requires flow-tools format and binary input')
+	exit()
+
     if (database and len(args)):
-	i = transform(args, user, host, password, database, format, exporter, tmpfile, bin)
+	i = transform(args, user, host, password, database, format, exporter, filter, tmpfile, bin)
 	print(str(i)+" records imported")
 	print("Run time: "+str(int(time.time()-start))+" seconds")
     else:
@@ -320,3 +333,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
